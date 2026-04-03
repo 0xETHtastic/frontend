@@ -24,14 +24,14 @@ if (!util.formatWithOptions) {
 }
 
 import { useState } from 'react'
-import { MeshDevice } from '@meshtastic/core'
+import { MeshDevice, Types } from '@meshtastic/core'
 import { TransportWebSerial } from '@meshtastic/transport-web-serial'
 import { Channel as ChannelProto } from '@meshtastic/protobufs'
 import { create } from '@bufbuild/protobuf'
 
 /**
  * Available PSK (Pre-Shared Key) size options for channel encryption.
- * - `none`: No encryption (0 bytes)
+ * - `none`: No encryption (0 bytes) 
  * - `8bit`: Simple encryption (1 byte) - minimal security
  * - `128bit`: AES-128 encryption (16 bytes)
  * - `256bit`: AES-256 encryption (32 bytes) - recommended
@@ -179,57 +179,51 @@ export default function MshtasticBoilerplate() {
       const transport = await TransportWebSerial.create()
       const meshDevice = new MeshDevice(transport)
 
-      // Subscribe to device status changes
-      meshDevice.events.onDeviceStatus.subscribe((status: any) => {
-        setIsConnected(true)
+      // Track device status and trigger configure handshake
+      meshDevice.events.onDeviceStatus.subscribe((status) => {
+        console.warn('[Mesh] Status:', Types.DeviceStatusEnum[status], `(${status})`)
+        if (status === Types.DeviceStatusEnum.DeviceConnected) {
+          meshDevice.configure().then(() => {
+            console.warn('[Mesh] configure() ack received')
+          }).catch((err) => {
+            console.error('[Mesh] configure() failed:', err)
+          })
+        }
+        if (status === Types.DeviceStatusEnum.DeviceConfigured) {
+          console.warn('[Mesh] Device fully configured — starting heartbeat')
+          meshDevice.setHeartbeatInterval(300_000) // 5 min keepalive
+          setIsConnected(true)
+        }
+        if (status === Types.DeviceStatusEnum.DeviceDisconnected) {
+          setIsConnected(false)
+        }
       })
 
-      // Subscribe to message packets (sent messages echo)
-      meshDevice.events.onMessagePacket.subscribe((packet: any) => {
-        let text = ''
-        const textDecoder = new TextDecoder()
-        
-        // Try different possible locations for the text
-        if (typeof packet.text === 'string') {
-          text = packet.text
-        } else if (typeof packet.data === 'string') {
-          text = packet.data
-        } else if (packet.data?.payload) {
-          if (typeof packet.data.payload === 'string') {
-            text = packet.data.payload
-          } else if (packet.data.payload instanceof Uint8Array) {
-            text = textDecoder.decode(packet.data.payload)
-          }
-        } else if (packet.payload) {
-          if (typeof packet.payload === 'string') {
-            text = packet.payload
-          } else if (packet.payload instanceof Uint8Array) {
-            text = textDecoder.decode(packet.payload)
-          }
-        }
-        
+      // Monitor ALL FromRadio frames (config, packets, etc.)
+      meshDevice.events.onFromRadio.subscribe((fromRadio) => {
+        console.warn('[Mesh] FromRadio:', fromRadio.payloadVariant.case)
+      })
+
+      // Monitor every MeshPacket: decoded vs encrypted
+      meshDevice.events.onMeshPacket.subscribe((meshPacket) => {
+        console.warn('[Mesh] MeshPacket:', meshPacket.payloadVariant.case, 'from:', meshPacket.from, 'to:', meshPacket.to)
+      })
+
+      // RF activity indicator
+      meshDevice.events.onMeshHeartbeat.subscribe((date) => {
+        console.warn('[Mesh] RF heartbeat (mesh activity detected):', date.toLocaleTimeString())
+      })
+
+      // TEXT_MESSAGE_APP packets — the actual messages
+      meshDevice.events.onMessagePacket.subscribe((packet) => {
+        console.warn('[Mesh] onMessagePacket:', packet)
         setMessages(prev => [...prev, {
           channel: packet.channel,
           from: packet.from,
-          text: text,
+          text: packet.data,
           timestamp: Date.now()
         }])
       })
-
-      // Subscribe to text packets (received messages from other devices)
-      const events = meshDevice.events as any
-      
-      if (events.onTextPacket) {
-        events.onTextPacket.subscribe((packet: any) => {
-          setMessages(prev => [...prev, {
-            channel: packet.channel ?? 0,
-            from: packet.from ?? 'unknown',
-            text: packet.text ?? packet.data ?? '',
-            timestamp: Date.now(),
-            source: 'onTextPacket'
-          }])
-        })
-      }
 
       setDevice(meshDevice)
     } catch (error) {
@@ -390,7 +384,7 @@ export default function MshtasticBoilerplate() {
       )
 
       setMessageText('')
-      alert(`Message sent on channel ${channel}`)
+      //alert(`Message sent on channel ${channel}`)
     } catch (error) {
       console.error('Failed to send message:', error)
     }
