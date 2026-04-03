@@ -3,6 +3,7 @@ import { ConnectButton } from "@/components/ConnectButton";
 import { InfoList } from "@/components/InfoList";
 import { ActionButtonList } from "@/components/ActionButtonList";
 import Image from 'next/image';
+import MshtasticBoilerplate from "@/components/MshtasticBoilerplate";
 
 export default function Home() {
 
@@ -19,6 +20,7 @@ export default function Home() {
         </p>
       </div>
       <InfoList />
+      <MshtasticBoilerplate/>
     </div>
   );
 }
