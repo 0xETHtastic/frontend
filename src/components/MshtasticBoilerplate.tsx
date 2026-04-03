@@ -396,6 +396,23 @@ export default function MshtasticBoilerplate() {
     }
   }
 
+  async function sendTestMessage() {
+    if (!device) return
+
+    try {
+      await device.sendText(
+        'send test by button',
+        undefined,
+        true,
+        channel
+      )
+
+      alert(`Test message sent on channel ${channel}`)
+    } catch (error) {
+      console.error('Failed to send test message:', error)
+    }
+  }
+
   // ============================================
   // Render
   // ============================================
@@ -480,6 +497,9 @@ export default function MshtasticBoilerplate() {
         />
         <button onClick={sendMessage} disabled={!isConnected}>
           Send
+        </button>
+        <button onClick={sendTestMessage} disabled={!isConnected}>
+          Send Test Message
         </button>
       </div>
 
