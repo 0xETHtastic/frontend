@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
+    "@evvm/evvm-js": "^0.1.32",
     "@meshtastic/core": "^2.6.7",
     "@meshtastic/protobufs": "^2.7.18",
     "@meshtastic/transport-web-serial": "^0.2.5",
