@@ -29,6 +29,7 @@ export default function Home() {
       <div
       style={{
         marginTop: '2rem',
+        marginBottom: '2rem',
         padding: '1rem',
         border: '1px solid #ccc',
         borderRadius: '8px',
