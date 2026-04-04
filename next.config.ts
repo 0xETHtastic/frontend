@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
       util: require.resolve('util/'),
     }
 
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@react-native-async-storage/async-storage': false,
+    }
+
     return config
   }
 };
