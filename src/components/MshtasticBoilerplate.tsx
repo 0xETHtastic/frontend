@@ -16,7 +16,7 @@
 
 // Polyfill for util.formatWithOptions if not available
 import util from "util";
-import LZString from "lz-string";
+
 
 if (!util.formatWithOptions) {
   util.formatWithOptions = function (inspectOptions, format, ...args) {
@@ -103,6 +103,74 @@ function uint8ArrayToBase64(arr: Uint8Array): string {
     binary += String.fromCharCode(arr[i]);
   }
   return btoa(binary);
+}
+
+const ZERO_ADDR = "0000000000000000000000000000000000000000";
+
+/**
+ * Encodes EVVM signed action args into a compact string for Meshtastic.
+ * Format: s=to|from|amount|fee|nonce|async|sig
+ * - Strips "0x" prefixes
+ * - Zero addresses become "Z"
+ * - identity omitted (always empty), token/executor/addr7 omitted (always address(0))
+ * - Signature hex is converted to base64
+ * - Booleans become "1"/"0"
+ */
+function encodeArgs(args: any[]): string {
+  const strip = (v: string) => v.startsWith("0x") ? v.slice(2) : v;
+  const addr = (v: string) => {
+    const raw = strip(v);
+    return raw === ZERO_ADDR ? "Z" : raw;
+  };
+  const sigHex = strip(String(args[10]));
+  const sigBytes = new Uint8Array(sigHex.length / 2);
+  for (let i = 0; i < sigBytes.length; i++) {
+    sigBytes[i] = parseInt(sigHex.slice(i * 2, i * 2 + 2), 16);
+  }
+  const sigB64 = btoa(String.fromCharCode(...sigBytes));
+
+  return [
+    addr(String(args[0])),  // to
+    addr(String(args[1])),  // from
+    String(args[4]),        // amount
+    String(args[5]),        // priorityFee
+    String(args[8]),        // nonce
+    args[9] ? "1" : "0",   // isAsyncExec
+    sigB64,                 // signature
+  ].join("|");
+}
+
+/**
+ * Decodes a compact Meshtastic string back into the original EVVM args array.
+ * Reverses encodeArgs: restores "0x" prefixes, expands "Z" to zero address,
+ * re-inserts identity (empty), token/executor/addr7 as address(0),
+ * converts base64 signature back to hex, and restores boolean.
+ */
+function decodeArgs(encoded: string): any[] {
+  const ZERO_FULL = "0x" + ZERO_ADDR;
+  const parts = encoded.split("|");
+  const restoreAddr = (v: string) => v === "Z" ? ZERO_FULL : "0x" + v;
+
+  // Decode base64 signature back to hex
+  const sigBinary = atob(parts[6]);
+  let sigHex = "0x";
+  for (let i = 0; i < sigBinary.length; i++) {
+    sigHex += sigBinary.charCodeAt(i).toString(16).padStart(2, "0");
+  }
+
+  return [
+    restoreAddr(parts[0]),  // to
+    restoreAddr(parts[1]),  // from
+    "",                     // identity (always empty)
+    ZERO_FULL,              // token (always address(0))
+    parts[2],               // amount
+    parts[3],               // priorityFee
+    ZERO_FULL,              // executor (always address(0))
+    ZERO_FULL,              // addr7 (always address(0))
+    parts[4],               // nonce
+    parts[5] === "1",       // isAsyncExec
+    sigHex,                 // signature
+  ];
 }
 
 /**
@@ -238,15 +306,45 @@ export default function MshtasticBoilerplate() {
       // TEXT_MESSAGE_APP packets — the actual messages
       meshDevice.events.onMessagePacket.subscribe((packet: any) => {
         console.warn("[Mesh] onMessagePacket:", packet);
-        setMessages((prev) => [
-          ...prev,
-          {
-            channel: packet.channel,
-            from: packet.from,
-            text: packet.data,
-            timestamp: Date.now(),
-          },
-        ]);
+        const text: string = packet.data;
+
+        if (text.startsWith("s=")) {
+          try {
+            const decoded = decodeArgs(text.slice(2));
+            console.log("[Mesh] Decoded EVVM args:", decoded);
+            setMessages((prev) => [
+              ...prev,
+              {
+                channel: packet.channel,
+                from: packet.from,
+                text: "EVVM TX: " + JSON.stringify(decoded),
+                timestamp: Date.now(),
+                source: "evvm",
+              },
+            ]);
+          } catch (err) {
+            console.error("[Mesh] Failed to decode EVVM message:", err);
+            setMessages((prev) => [
+              ...prev,
+              {
+                channel: packet.channel,
+                from: packet.from,
+                text: text,
+                timestamp: Date.now(),
+              },
+            ]);
+          }
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              channel: packet.channel,
+              from: packet.from,
+              text: text,
+              timestamp: Date.now(),
+            },
+          ]);
+        }
       });
 
       setDevice(meshDevice);
@@ -435,7 +533,7 @@ export default function MshtasticBoilerplate() {
       (document.getElementById(id) as HTMLInputElement)?.value;
 
     const to = getValue("toAddressInput_Pay");
-    const tokenAddress = getValue("tokenAddress_Pay");
+    const tokenAddress = "0x0000000000000000000000000000000000000000";
     const amount = getValue("amountTokenInput_Pay");
     const priorityFee = getValue("priorityFeeInput_Pay");
     const nonce = getValue("nonceInput_Pay");
@@ -466,16 +564,13 @@ export default function MshtasticBoilerplate() {
         senderExecutor: senderExecutor as `0x${string}`,
       });
 
-      console.log(signedAction.toJSON().args);
-      //prepare to send signedAction.args to meshtastic device
+      const args = signedAction.toJSON().args;
+      console.log("Raw args:", args);
 
-      //setMessageText("send=" + JSON.stringify(signedAction.toJSON().args));
-      setMessageText(
-        "send=" +
-          LZString.compressToEncodedURIComponent(
-            JSON.stringify(signedAction.toJSON().args),
-          ),
-      );
+      const encoded = "s=" + encodeArgs(args);
+      console.log("Encoded length:", encoded.length, "chars");
+      console.log("Encoded:", encoded);
+      setMessageText(encoded);
     } catch (error) {
       console.error("Error creating signature:", error);
     }
@@ -586,12 +681,6 @@ export default function MshtasticBoilerplate() {
           id="toAddressInput_Pay"
           type="text"
           placeholder="To Address"
-          style={{ width: "300px", marginBottom: "10px" }}
-        />
-        <input
-          id="tokenAddress_Pay"
-          type="text"
-          placeholder="Token Address"
           style={{ width: "300px", marginBottom: "10px" }}
         />
         <input
