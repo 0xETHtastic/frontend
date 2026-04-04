@@ -16,6 +16,7 @@
 
 // Polyfill for util.formatWithOptions if not available
 import util from "util";
+import LZString from "lz-string";
 
 if (!util.formatWithOptions) {
   util.formatWithOptions = function (inspectOptions, format, ...args) {
@@ -183,7 +184,7 @@ export default function MshtasticBoilerplate() {
       const meshDevice = new MeshDevice(transport);
 
       // Track device status and trigger configure handshake
-      meshDevice.events.onDeviceStatus.subscribe((status: Types.DeviceStatusEnum) => {
+      meshDevice.events.onDeviceStatus.subscribe((status: any) => {
         console.warn(
           "[Mesh] Status:",
           Types.DeviceStatusEnum[status],
@@ -210,12 +211,12 @@ export default function MshtasticBoilerplate() {
       });
 
       // Monitor ALL FromRadio frames (config, packets, etc.)
-      meshDevice.events.onFromRadio.subscribe((fromRadio) => {
+      meshDevice.events.onFromRadio.subscribe((fromRadio: any) => {
         console.warn("[Mesh] FromRadio:", fromRadio.payloadVariant.case);
       });
 
       // Monitor every MeshPacket: decoded vs encrypted
-      meshDevice.events.onMeshPacket.subscribe((meshPacket) => {
+      meshDevice.events.onMeshPacket.subscribe((meshPacket: any) => {
         console.warn(
           "[Mesh] MeshPacket:",
           meshPacket.payloadVariant.case,
@@ -227,7 +228,7 @@ export default function MshtasticBoilerplate() {
       });
 
       // RF activity indicator
-      meshDevice.events.onMeshHeartbeat.subscribe((date) => {
+      meshDevice.events.onMeshHeartbeat.subscribe((date: any) => {
         console.warn(
           "[Mesh] RF heartbeat (mesh activity detected):",
           date.toLocaleTimeString(),
@@ -235,7 +236,7 @@ export default function MshtasticBoilerplate() {
       });
 
       // TEXT_MESSAGE_APP packets — the actual messages
-      meshDevice.events.onMessagePacket.subscribe((packet) => {
+      meshDevice.events.onMessagePacket.subscribe((packet: any) => {
         console.warn("[Mesh] onMessagePacket:", packet);
         setMessages((prev) => [
           ...prev,
@@ -468,7 +469,13 @@ export default function MshtasticBoilerplate() {
       console.log(signedAction.toJSON().args);
       //prepare to send signedAction.args to meshtastic device
 
-      setMessageText("send=" + JSON.stringify(signedAction.toJSON().args));
+      //setMessageText("send=" + JSON.stringify(signedAction.toJSON().args));
+      setMessageText(
+        "send=" +
+          LZString.compressToEncodedURIComponent(
+            JSON.stringify(signedAction.toJSON().args),
+          ),
+      );
     } catch (error) {
       console.error("Error creating signature:", error);
     }
@@ -493,7 +500,7 @@ export default function MshtasticBoilerplate() {
         )}
       </div>
 
-      {/* Primary Channel Configuration 
+      {/* Primary Channel Configuration */}
       <div style={{ marginBottom: "20px" }}>
         <h2>Primary Channel (0)</h2>
         <div style={{ marginBottom: "10px" }}>
@@ -520,9 +527,8 @@ export default function MshtasticBoilerplate() {
           Set Primary PSK
         </button>
       </div>
-      */}
 
-      {/* Secondary Channel Configuration 
+      {/* Secondary Channel Configuration */}
       <div style={{ marginBottom: "20px" }}>
         <h2>Secondary Channel (1)</h2>
         <div style={{ marginBottom: "10px" }}>
@@ -550,7 +556,7 @@ export default function MshtasticBoilerplate() {
         </button>
       </div>
 
-      {/* Send Message Section 
+      {/* Send Message Section */}
       <div style={{ marginBottom: "20px" }}>
         <h2>Send Message</h2>
         <select
@@ -560,7 +566,7 @@ export default function MshtasticBoilerplate() {
           <option value={0}>Primary (0)</option>
           <option value={1}>Secondary (1)</option>
         </select>
-        {/*<input
+        <input
           type="text"
           placeholder="Message"
           value={messageText}
@@ -569,36 +575,45 @@ export default function MshtasticBoilerplate() {
         <button onClick={sendMessage} disabled={!isConnected}>
           Send
         </button>
-        
-        
         <button onClick={sendTestMessage} disabled={!isConnected}>
           Send Test Message
         </button>
       </div>
 
-      */}
-
       <div>
         <h2>EVVM Signature Test</h2>
-        <input id="toAddressInput_Pay" type="text" placeholder="To Address" style={{ width: "300px", marginBottom: "10px" }} />
-        <input id="tokenAddress_Pay" type="text" placeholder="Token Address" style={{ width: "300px", marginBottom: "10px" }} />
-        <input id="amountTokenInput_Pay" type="text" placeholder="Amount" style={{ width: "300px", marginBottom: "10px" }} />
-        <input id="priorityFeeInput_Pay" type="text" placeholder="Priority Fee (gwei)" style={{ width: "300px", marginBottom: "10px" }} />
-        <input id="nonceInput_Pay" type="text" placeholder="Nonce" style={{ width: "300px", marginBottom: "10px" }} />
+        <input
+          id="toAddressInput_Pay"
+          type="text"
+          placeholder="To Address"
+          style={{ width: "300px", marginBottom: "10px" }}
+        />
+        <input
+          id="tokenAddress_Pay"
+          type="text"
+          placeholder="Token Address"
+          style={{ width: "300px", marginBottom: "10px" }}
+        />
+        <input
+          id="amountTokenInput_Pay"
+          type="text"
+          placeholder="Amount"
+          style={{ width: "300px", marginBottom: "10px" }}
+        />
+        <input
+          id="priorityFeeInput_Pay"
+          type="text"
+          placeholder="Priority Fee (gwei)"
+          style={{ width: "300px", marginBottom: "10px" }}
+        />
+        <input
+          id="nonceInput_Pay"
+          type="text"
+          placeholder="Nonce"
+          style={{ width: "300px", marginBottom: "10px" }}
+        />
         <button onClick={makeSig}>Create Signature</button>
       </div>
-
-      {
-        messageText !== "" && (
-          <div style={{ marginTop: "20px", padding: "10px", border: "1px solid blue" }}>
-            <h3>Prepared Message to Send:</h3>
-            <pre>{messageText}</pre>
-            <button onClick={sendMessage} disabled={!isConnected}>
-          Send
-        </button>
-          </div>
-        )
-      }
 
       {/* Messages Display Section */}
       <div>
