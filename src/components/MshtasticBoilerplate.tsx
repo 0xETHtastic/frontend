@@ -183,7 +183,7 @@ export default function MshtasticBoilerplate() {
       const meshDevice = new MeshDevice(transport);
 
       // Track device status and trigger configure handshake
-      meshDevice.events.onDeviceStatus.subscribe((status) => {
+      meshDevice.events.onDeviceStatus.subscribe((status: Types.DeviceStatusEnum) => {
         console.warn(
           "[Mesh] Status:",
           Types.DeviceStatusEnum[status],
