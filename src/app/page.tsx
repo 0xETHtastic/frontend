@@ -34,6 +34,7 @@ export default function Home() {
         border: '1px solid #ccc',
         borderRadius: '8px',
         backgroundColor: '#f9f9f9',
+        width: "50vw",
       }}
     >
       <MshtasticBoilerplate  /></div>

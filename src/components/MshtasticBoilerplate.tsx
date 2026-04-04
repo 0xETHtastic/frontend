@@ -650,8 +650,7 @@ export default function MshtasticBoilerplate() {
   // ============================================
 
   return (
-    <Stack p="md" style={{ maxWidth: "860px", margin: "0 auto" }}>
-      <Title order={1}>Meshtastic Serial Boilerplate</Title>
+    <Stack p="md" >
 
       {/* Connection Section */}
       <Paper withBorder p="md">
