@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * @fileoverview Meshtastic Serial Boilerplate Component
@@ -7,7 +7,7 @@
  * - Serial connection management
  * - Channel PSK configuration (Primary and Secondary)
  * - Message sending and receiving
- * 
+ *
  * @requires @meshtastic/core
  * @requires @meshtastic/transport-web-serial
  * @requires @meshtastic/protobufs
@@ -15,52 +15,55 @@
  */
 
 // Polyfill for util.formatWithOptions if not available
-import util from 'util';
+import util from "util";
 
 if (!util.formatWithOptions) {
-  util.formatWithOptions = function(inspectOptions, format, ...args) {
+  util.formatWithOptions = function (inspectOptions, format, ...args) {
     return util.format ? util.format(format, ...args) : format;
   };
 }
 
-import { useState } from 'react'
-import { MeshDevice, Types } from '@meshtastic/core'
-import { TransportWebSerial } from '@meshtastic/transport-web-serial'
-import { Channel as ChannelProto } from '@meshtastic/protobufs'
-import { create } from '@bufbuild/protobuf'
+import { useState } from "react";
+import { MeshDevice, Types } from "@meshtastic/core";
+import { TransportWebSerial } from "@meshtastic/transport-web-serial";
+import { Channel as ChannelProto } from "@meshtastic/protobufs";
+import { create } from "@bufbuild/protobuf";
+import { getCurrentChainId, getEvvmSigner } from "@/app/utils/evvm-signer";
+import { Core } from "@evvm/evvm-js";
+import contractAddress from "@/constants/contractAddress.json";
 
 /**
  * Available PSK (Pre-Shared Key) size options for channel encryption.
- * - `none`: No encryption (0 bytes) 
+ * - `none`: No encryption (0 bytes)
  * - `8bit`: Simple encryption (1 byte) - minimal security
  * - `128bit`: AES-128 encryption (16 bytes)
  * - `256bit`: AES-256 encryption (32 bytes) - recommended
  */
-type PSKSize = 'none' | '8bit' | '128bit' | '256bit'
+type PSKSize = "none" | "8bit" | "128bit" | "256bit";
 
 /**
  * Represents a received message from the mesh network.
  */
 interface MeshMessage {
   /** Channel index the message was received on */
-  channel: number
+  channel: number;
   /** Node ID of the sender */
-  from: number | string
+  from: number | string;
   /** Text content of the message */
-  text: string
+  text: string;
   /** Unix timestamp when the message was received */
-  timestamp: number
+  timestamp: number;
   /** Source event that captured the message (optional) */
-  source?: string
+  source?: string;
 }
 
 /**
  * Generates a random PSK (Pre-Shared Key) of the specified size.
  * Uses the Web Crypto API for cryptographically secure random values.
- * 
+ *
  * @param size - The desired PSK size
  * @returns A Uint8Array containing the generated PSK
- * 
+ *
  * @example
  * ```typescript
  * const psk256 = generatePSK('256bit') // 32 bytes
@@ -70,23 +73,23 @@ interface MeshMessage {
  */
 function generatePSK(size: PSKSize): Uint8Array {
   switch (size) {
-    case 'none':
-      return new Uint8Array(0)
-    case '8bit':
-      return crypto.getRandomValues(new Uint8Array(1))
-    case '128bit':
-      return crypto.getRandomValues(new Uint8Array(16))
-    case '256bit':
-      return crypto.getRandomValues(new Uint8Array(32))
+    case "none":
+      return new Uint8Array(0);
+    case "8bit":
+      return crypto.getRandomValues(new Uint8Array(1));
+    case "128bit":
+      return crypto.getRandomValues(new Uint8Array(16));
+    case "256bit":
+      return crypto.getRandomValues(new Uint8Array(32));
   }
 }
 
 /**
  * Converts a Uint8Array to a Base64-encoded string.
- * 
+ *
  * @param arr - The Uint8Array to convert
  * @returns Base64-encoded string representation
- * 
+ *
  * @example
  * ```typescript
  * const psk = new Uint8Array([1, 2, 3, 4])
@@ -94,33 +97,33 @@ function generatePSK(size: PSKSize): Uint8Array {
  * ```
  */
 function uint8ArrayToBase64(arr: Uint8Array): string {
-  let binary = ''
+  let binary = "";
   for (let i = 0; i < arr.length; i++) {
-    binary += String.fromCharCode(arr[i])
+    binary += String.fromCharCode(arr[i]);
   }
-  return btoa(binary)
+  return btoa(binary);
 }
 
 /**
  * Meshtastic Serial Boilerplate Component.
- * 
+ *
  * A comprehensive React component for interacting with Meshtastic devices
  * through the Web Serial API. Supports connection management, channel
  * configuration with PSK encryption, and bidirectional messaging.
- * 
+ *
  * @remarks
  * This component requires a browser that supports the Web Serial API
  * (Chrome, Edge, or other Chromium-based browsers).
- * 
+ *
  * @example
  * ```tsx
  * import MshtasticBoilerplate from '@/components/mshtasticBoilerplate'
- * 
+ *
  * export default function Page() {
  *   return <MshtasticBoilerplate />
  * }
  * ```
- * 
+ *
  * @returns The rendered Meshtastic boilerplate UI
  */
 export default function MshtasticBoilerplate() {
@@ -129,31 +132,31 @@ export default function MshtasticBoilerplate() {
   // ============================================
 
   /** Mesh device instance for communication */
-  const [device, setDevice] = useState<MeshDevice | null>(null)
-  
+  const [device, setDevice] = useState<MeshDevice | null>(null);
+
   /** Current connection status */
-  const [isConnected, setIsConnected] = useState(false)
-  
+  const [isConnected, setIsConnected] = useState(false);
+
   /** Array of received messages */
-  const [messages, setMessages] = useState<MeshMessage[]>([])
-  
+  const [messages, setMessages] = useState<MeshMessage[]>([]);
+
   /** Primary channel PSK in Base64 format */
-  const [primaryPSK, setPrimaryPSK] = useState('')
-  
+  const [primaryPSK, setPrimaryPSK] = useState("");
+
   /** Selected PSK size for primary channel */
-  const [primaryPSKSize, setPrimaryPSKSize] = useState<PSKSize>('256bit')
-  
+  const [primaryPSKSize, setPrimaryPSKSize] = useState<PSKSize>("256bit");
+
   /** Secondary channel PSK in Base64 format */
-  const [secondaryPSK, setSecondaryPSK] = useState('')
-  
+  const [secondaryPSK, setSecondaryPSK] = useState("");
+
   /** Selected PSK size for secondary channel */
-  const [secondaryPSKSize, setSecondaryPSKSize] = useState<PSKSize>('256bit')
-  
+  const [secondaryPSKSize, setSecondaryPSKSize] = useState<PSKSize>("256bit");
+
   /** Text message to send */
-  const [messageText, setMessageText] = useState('')
-  
+  const [messageText, setMessageText] = useState("");
+
   /** Selected channel index for sending messages (0 = Primary, 1 = Secondary) */
-  const [channel, setChannel] = useState(0)
+  const [channel, setChannel] = useState(0);
 
   // ============================================
   // Connection Functions
@@ -161,14 +164,14 @@ export default function MshtasticBoilerplate() {
 
   /**
    * Establishes a serial connection to a Meshtastic device.
-   * 
+   *
    * Opens a browser dialog to select the serial port, creates the transport
    * and device instances, and sets up event listeners for device status
    * and incoming messages.
-   * 
+   *
    * @async
    * @throws {Error} If the connection fails or user cancels port selection
-   * 
+   *
    * @remarks
    * Subscribes to two message events:
    * - `onMessagePacket`: Captures sent messages (echo)
@@ -176,58 +179,78 @@ export default function MshtasticBoilerplate() {
    */
   async function connect() {
     try {
-      const transport = await TransportWebSerial.create()
-      const meshDevice = new MeshDevice(transport)
+      const transport = await TransportWebSerial.create();
+      const meshDevice = new MeshDevice(transport);
 
       // Track device status and trigger configure handshake
       meshDevice.events.onDeviceStatus.subscribe((status) => {
-        console.warn('[Mesh] Status:', Types.DeviceStatusEnum[status], `(${status})`)
+        console.warn(
+          "[Mesh] Status:",
+          Types.DeviceStatusEnum[status],
+          `(${status})`,
+        );
         if (status === Types.DeviceStatusEnum.DeviceConnected) {
-          meshDevice.configure().then(() => {
-            console.warn('[Mesh] configure() ack received')
-          }).catch((err) => {
-            console.error('[Mesh] configure() failed:', err)
-          })
+          meshDevice
+            .configure()
+            .then(() => {
+              console.warn("[Mesh] configure() ack received");
+            })
+            .catch((err) => {
+              console.error("[Mesh] configure() failed:", err);
+            });
         }
         if (status === Types.DeviceStatusEnum.DeviceConfigured) {
-          console.warn('[Mesh] Device fully configured — starting heartbeat')
-          meshDevice.setHeartbeatInterval(300_000) // 5 min keepalive
-          setIsConnected(true)
+          console.warn("[Mesh] Device fully configured — starting heartbeat");
+          meshDevice.setHeartbeatInterval(300_000); // 5 min keepalive
+          setIsConnected(true);
         }
         if (status === Types.DeviceStatusEnum.DeviceDisconnected) {
-          setIsConnected(false)
+          setIsConnected(false);
         }
-      })
+      });
 
       // Monitor ALL FromRadio frames (config, packets, etc.)
       meshDevice.events.onFromRadio.subscribe((fromRadio) => {
-        console.warn('[Mesh] FromRadio:', fromRadio.payloadVariant.case)
-      })
+        console.warn("[Mesh] FromRadio:", fromRadio.payloadVariant.case);
+      });
 
       // Monitor every MeshPacket: decoded vs encrypted
       meshDevice.events.onMeshPacket.subscribe((meshPacket) => {
-        console.warn('[Mesh] MeshPacket:', meshPacket.payloadVariant.case, 'from:', meshPacket.from, 'to:', meshPacket.to)
-      })
+        console.warn(
+          "[Mesh] MeshPacket:",
+          meshPacket.payloadVariant.case,
+          "from:",
+          meshPacket.from,
+          "to:",
+          meshPacket.to,
+        );
+      });
 
       // RF activity indicator
       meshDevice.events.onMeshHeartbeat.subscribe((date) => {
-        console.warn('[Mesh] RF heartbeat (mesh activity detected):', date.toLocaleTimeString())
-      })
+        console.warn(
+          "[Mesh] RF heartbeat (mesh activity detected):",
+          date.toLocaleTimeString(),
+        );
+      });
 
       // TEXT_MESSAGE_APP packets — the actual messages
       meshDevice.events.onMessagePacket.subscribe((packet) => {
-        console.warn('[Mesh] onMessagePacket:', packet)
-        setMessages(prev => [...prev, {
-          channel: packet.channel,
-          from: packet.from,
-          text: packet.data,
-          timestamp: Date.now()
-        }])
-      })
+        console.warn("[Mesh] onMessagePacket:", packet);
+        setMessages((prev) => [
+          ...prev,
+          {
+            channel: packet.channel,
+            from: packet.from,
+            text: packet.data,
+            timestamp: Date.now(),
+          },
+        ]);
+      });
 
-      setDevice(meshDevice)
+      setDevice(meshDevice);
     } catch (error) {
-      console.error('Connection failed:', error)
+      console.error("Connection failed:", error);
     }
   }
 
@@ -237,9 +260,9 @@ export default function MshtasticBoilerplate() {
    */
   function disconnect() {
     if (device) {
-      device.disconnect()
-      setDevice(null)
-      setIsConnected(false)
+      device.disconnect();
+      setDevice(null);
+      setIsConnected(false);
     }
   }
 
@@ -252,8 +275,8 @@ export default function MshtasticBoilerplate() {
    * Updates the primaryPSK state with the Base64-encoded value.
    */
   function generatePrimaryPSK() {
-    const psk = generatePSK(primaryPSKSize)
-    setPrimaryPSK(uint8ArrayToBase64(psk))
+    const psk = generatePSK(primaryPSKSize);
+    setPrimaryPSK(uint8ArrayToBase64(psk));
   }
 
   /**
@@ -261,8 +284,8 @@ export default function MshtasticBoilerplate() {
    * Updates the secondaryPSK state with the Base64-encoded value.
    */
   function generateSecondaryPSK() {
-    const psk = generatePSK(secondaryPSKSize)
-    setSecondaryPSK(uint8ArrayToBase64(psk))
+    const psk = generatePSK(secondaryPSKSize);
+    setSecondaryPSK(uint8ArrayToBase64(psk));
   }
 
   // ============================================
@@ -271,75 +294,75 @@ export default function MshtasticBoilerplate() {
 
   /**
    * Configures the primary channel (index 0) with the specified PSK.
-   * 
+   *
    * If a PSK is provided in the input field, it will be used.
    * Otherwise, a new PSK will be generated based on the selected size.
-   * 
+   *
    * @async
    * @throws {Error} If the channel configuration fails
    */
   async function setupPrimaryPSK() {
-    if (!device) return
+    if (!device) return;
 
     try {
-      let psk: Uint8Array
-      
+      let psk: Uint8Array;
+
       if (primaryPSK) {
         // Use provided Base64 PSK
-        const binaryString = atob(primaryPSK)
-        psk = new Uint8Array(binaryString.length)
+        const binaryString = atob(primaryPSK);
+        psk = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
-          psk[i] = binaryString.charCodeAt(i)
+          psk[i] = binaryString.charCodeAt(i);
         }
       } else {
         // Generate new PSK based on selected size
-        psk = generatePSK(primaryPSKSize)
-        setPrimaryPSK(uint8ArrayToBase64(psk))
+        psk = generatePSK(primaryPSKSize);
+        setPrimaryPSK(uint8ArrayToBase64(psk));
       }
-      
+
       const channelConfig = create(ChannelProto.ChannelSchema, {
         index: 0,
         role: ChannelProto.Channel_Role.PRIMARY,
         settings: {
           psk: psk,
-          name: 'Primary'
-        }
-      })
+          name: "Primary",
+        },
+      });
 
-      await device.setChannel(channelConfig)
+      await device.setChannel(channelConfig);
 
-      alert('Primary PSK set')
+      alert("Primary PSK set");
     } catch (error) {
-      console.error('Failed to set primary PSK:', error)
+      console.error("Failed to set primary PSK:", error);
     }
   }
 
   /**
    * Configures the secondary channel (index 1) with the specified PSK.
-   * 
+   *
    * If a PSK is provided in the input field, it will be used.
    * Otherwise, a new PSK will be generated based on the selected size.
-   * 
+   *
    * @async
    * @throws {Error} If the channel configuration fails
    */
   async function setupSecondaryPSK() {
-    if (!device) return
+    if (!device) return;
 
     try {
-      let psk: Uint8Array
-      
+      let psk: Uint8Array;
+
       if (secondaryPSK) {
         // Use provided Base64 PSK
-        const binaryString = atob(secondaryPSK)
-        psk = new Uint8Array(binaryString.length)
+        const binaryString = atob(secondaryPSK);
+        psk = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
-          psk[i] = binaryString.charCodeAt(i)
+          psk[i] = binaryString.charCodeAt(i);
         }
       } else {
         // Generate new PSK based on selected size
-        psk = generatePSK(secondaryPSKSize)
-        setSecondaryPSK(uint8ArrayToBase64(psk))
+        psk = generatePSK(secondaryPSKSize);
+        setSecondaryPSK(uint8ArrayToBase64(psk));
       }
 
       const channelConfig = create(ChannelProto.ChannelSchema, {
@@ -347,15 +370,15 @@ export default function MshtasticBoilerplate() {
         role: ChannelProto.Channel_Role.SECONDARY,
         settings: {
           psk: psk,
-          name: 'Secondary'
-        }
-      })
+          name: "Secondary",
+        },
+      });
 
-      await device.setChannel(channelConfig)
+      await device.setChannel(channelConfig);
 
-      alert('Secondary PSK set')
+      alert("Secondary PSK set");
     } catch (error) {
-      console.error('Failed to set secondary PSK:', error)
+      console.error("Failed to set secondary PSK:", error);
     }
   }
 
@@ -365,60 +388,104 @@ export default function MshtasticBoilerplate() {
 
   /**
    * Sends a text message to the mesh network on the selected channel.
-   * 
+   *
    * The message is broadcast to all nodes (destination = undefined).
    * Requests acknowledgment from receiving nodes (wantAck = true).
-   * 
+   *
    * @async
    * @throws {Error} If the message fails to send
    */
   async function sendMessage() {
-    if (!device || !messageText) return
+    if (!device || !messageText) return;
 
     try {
       await device.sendText(
         messageText,
         undefined, // destination (broadcast)
-        true,      // wantAck
-        channel    // channel index
-      )
+        true, // wantAck
+        channel, // channel index
+      );
 
-      setMessageText('')
+      setMessageText("");
       //alert(`Message sent on channel ${channel}`)
     } catch (error) {
-      console.error('Failed to send message:', error)
+      console.error("Failed to send message:", error);
     }
   }
 
   async function sendTestMessage() {
-    if (!device) return
+    if (!device) return;
 
     try {
-      await device.sendText(
-        'send test by button',
-        undefined,
-        true,
-        channel
-      )
+      await device.sendText("send test by button", undefined, true, channel);
 
-      alert(`Test message sent on channel ${channel}`)
+      alert(`Test message sent on channel ${channel}`);
     } catch (error) {
-      console.error('Failed to send test message:', error)
+      console.error("Failed to send test message:", error);
     }
   }
+
+  // ============================================
+  // Signature Generation Function (EVVM)
+  // ============================================
+
+  const makeSig = async () => {
+    const getValue = (id: string) =>
+      (document.getElementById(id) as HTMLInputElement)?.value;
+
+    const to = getValue("toAddressInput_Pay");
+    const tokenAddress = getValue("tokenAddress_Pay");
+    const amount = getValue("amountTokenInput_Pay");
+    const priorityFee = getValue("priorityFeeInput_Pay");
+    const nonce = getValue("nonceInput_Pay");
+    const senderExecutor = "0x0000000000000000000000000000000000000000";
+
+    if (!tokenAddress || !amount || !priorityFee || !nonce) {
+      console.error("All fields are required");
+      return;
+    }
+
+    try {
+      const signer = await getEvvmSigner();
+      const evvm = new Core({
+        signer,
+        address: contractAddress.evvmCore as `0x${string}`,
+        chainId: getCurrentChainId(),
+      });
+
+      let signedAction;
+
+      signedAction = await evvm.pay({
+        toAddress: to as `0x${string}`,
+        tokenAddress: tokenAddress as `0x${string}`,
+        amount: BigInt(amount),
+        priorityFee: BigInt(priorityFee),
+        nonce: BigInt(nonce),
+        isAsyncExec: true,
+        senderExecutor: senderExecutor as `0x${string}`,
+      });
+
+      console.log(signedAction.toJSON().args);
+      //prepare to send signedAction.args to meshtastic device
+
+      setMessageText("send=" + JSON.stringify(signedAction.toJSON().args));
+    } catch (error) {
+      console.error("Error creating signature:", error);
+    }
+  };
 
   // ============================================
   // Render
   // ============================================
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: "20px" }}>
       <h1>Meshtastic Serial Boilerplate</h1>
 
       {/* Connection Section */}
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{ marginBottom: "20px" }}>
         <h2>Connection</h2>
-        <p>Status: {isConnected ? 'Connected' : 'Disconnected'}</p>
+        <p>Status: {isConnected ? "Connected" : "Disconnected"}</p>
         {!isConnected ? (
           <button onClick={connect}>Connect Serial</button>
         ) : (
@@ -426,12 +493,15 @@ export default function MshtasticBoilerplate() {
         )}
       </div>
 
-      {/* Primary Channel Configuration */}
-      <div style={{ marginBottom: '20px' }}>
+      {/* Primary Channel Configuration 
+      <div style={{ marginBottom: "20px" }}>
         <h2>Primary Channel (0)</h2>
-        <div style={{ marginBottom: '10px' }}>
+        <div style={{ marginBottom: "10px" }}>
           <label>PSK Size: </label>
-          <select value={primaryPSKSize} onChange={(e) => setPrimaryPSKSize(e.target.value as PSKSize)}>
+          <select
+            value={primaryPSKSize}
+            onChange={(e) => setPrimaryPSKSize(e.target.value as PSKSize)}
+          >
             <option value="none">None (No encryption)</option>
             <option value="8bit">8 bits (Simple)</option>
             <option value="128bit">128 bits (AES-128)</option>
@@ -444,19 +514,23 @@ export default function MshtasticBoilerplate() {
           placeholder="Base64 PSK (or generate above)"
           value={primaryPSK}
           onChange={(e) => setPrimaryPSK(e.target.value)}
-          style={{ width: '300px' }}
+          style={{ width: "300px" }}
         />
         <button onClick={setupPrimaryPSK} disabled={!isConnected}>
           Set Primary PSK
         </button>
       </div>
+      */}
 
-      {/* Secondary Channel Configuration */}
-      <div style={{ marginBottom: '20px' }}>
+      {/* Secondary Channel Configuration 
+      <div style={{ marginBottom: "20px" }}>
         <h2>Secondary Channel (1)</h2>
-        <div style={{ marginBottom: '10px' }}>
+        <div style={{ marginBottom: "10px" }}>
           <label>PSK Size: </label>
-          <select value={secondaryPSKSize} onChange={(e) => setSecondaryPSKSize(e.target.value as PSKSize)}>
+          <select
+            value={secondaryPSKSize}
+            onChange={(e) => setSecondaryPSKSize(e.target.value as PSKSize)}
+          >
             <option value="none">None (No encryption)</option>
             <option value="8bit">8 bits (Simple)</option>
             <option value="128bit">128 bits (AES-128)</option>
@@ -469,21 +543,24 @@ export default function MshtasticBoilerplate() {
           placeholder="Base64 PSK (or generate above)"
           value={secondaryPSK}
           onChange={(e) => setSecondaryPSK(e.target.value)}
-          style={{ width: '300px' }}
+          style={{ width: "300px" }}
         />
         <button onClick={setupSecondaryPSK} disabled={!isConnected}>
           Set Secondary PSK
         </button>
       </div>
 
-      {/* Send Message Section */}
-      <div style={{ marginBottom: '20px' }}>
+      {/* Send Message Section 
+      <div style={{ marginBottom: "20px" }}>
         <h2>Send Message</h2>
-        <select value={channel} onChange={(e) => setChannel(Number(e.target.value))}>
+        <select
+          value={channel}
+          onChange={(e) => setChannel(Number(e.target.value))}
+        >
           <option value={0}>Primary (0)</option>
           <option value={1}>Secondary (1)</option>
         </select>
-        <input
+        {/*<input
           type="text"
           placeholder="Message"
           value={messageText}
@@ -492,10 +569,36 @@ export default function MshtasticBoilerplate() {
         <button onClick={sendMessage} disabled={!isConnected}>
           Send
         </button>
+        
+        
         <button onClick={sendTestMessage} disabled={!isConnected}>
           Send Test Message
         </button>
       </div>
+
+      */}
+
+      <div>
+        <h2>EVVM Signature Test</h2>
+        <input id="toAddressInput_Pay" type="text" placeholder="To Address" style={{ width: "300px", marginBottom: "10px" }} />
+        <input id="tokenAddress_Pay" type="text" placeholder="Token Address" style={{ width: "300px", marginBottom: "10px" }} />
+        <input id="amountTokenInput_Pay" type="text" placeholder="Amount" style={{ width: "300px", marginBottom: "10px" }} />
+        <input id="priorityFeeInput_Pay" type="text" placeholder="Priority Fee (gwei)" style={{ width: "300px", marginBottom: "10px" }} />
+        <input id="nonceInput_Pay" type="text" placeholder="Nonce" style={{ width: "300px", marginBottom: "10px" }} />
+        <button onClick={makeSig}>Create Signature</button>
+      </div>
+
+      {
+        messageText !== "" && (
+          <div style={{ marginTop: "20px", padding: "10px", border: "1px solid blue" }}>
+            <h3>Prepared Message to Send:</h3>
+            <pre>{messageText}</pre>
+            <button onClick={sendMessage} disabled={!isConnected}>
+          Send
+        </button>
+          </div>
+        )
+      }
 
       {/* Messages Display Section */}
       <div>
@@ -504,7 +607,14 @@ export default function MshtasticBoilerplate() {
           <p>No messages</p>
         ) : (
           messages.map((msg, i) => (
-            <div key={i} style={{ marginBottom: '10px', border: '1px solid black', padding: '10px' }}>
+            <div
+              key={i}
+              style={{
+                marginBottom: "10px",
+                border: "1px solid black",
+                padding: "10px",
+              }}
+            >
               <p>Channel: {msg.channel}</p>
               <p>From: {msg.from}</p>
               <p>Text: {msg.text}</p>
@@ -514,5 +624,5 @@ export default function MshtasticBoilerplate() {
         )}
       </div>
     </div>
-  )
+  );
 }
