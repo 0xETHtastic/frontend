@@ -369,10 +369,12 @@ export default function MshtasticBoilerplate() {
             });
             // Send to API if online
             if (navigator.onLine) {
+              const fieldSnapshot = { ...decoded };
+              console.log("[API] Auto-send body:", JSON.stringify(fieldSnapshot));
               fetch("/api/sendToEvvm", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(record.field),
+                body: JSON.stringify(fieldSnapshot),
               })
                 .then((res) => res.json())
                 .then((data) => {
