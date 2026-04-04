@@ -234,6 +234,12 @@ export default function MshtasticBoilerplate() {
   /** Queue of decoded action records (persisted in localStorage) */
   const [actionQueue, setActionQueue] = useState<ActionRecord[]>([]);
 
+  /** Report of the last process-queue run */
+  const [processReport, setProcessReport] = useState<{ timestamp: number; action: string; status: number | "error"; response: any }[] | null>(null);
+
+  /** Whether the queue is currently being processed */
+  const [isProcessing, setIsProcessing] = useState(false);
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem("actionQueue");
@@ -363,29 +369,7 @@ export default function MshtasticBoilerplate() {
               channel: packet.channel,
               timestamp: Date.now(),
             };
-            setActionQueue((prev) => {
-              const next = [...prev, record];
-              return next;
-            });
-            // Send to API if online
-            if (navigator.onLine) {
-              const fieldSnapshot = { ...decoded };
-              console.log("[API] Auto-send body:", JSON.stringify(fieldSnapshot));
-              fetch("/api/sendToEvvm", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(fieldSnapshot),
-              })
-                .then((res) => res.json())
-                .then((data) => {
-                  console.log("[API] sendToEvvm response:", data);
-                })
-                .catch((err) => {
-                  console.error("[API] sendToEvvm request failed:", err);
-                });
-            } else {
-              console.warn("[API] Offline — sendToEvvm not sent, stored locally only");
-            }
+            setActionQueue((prev) => [...prev, record]);
             setMessages((prev) => [
               ...prev,
               {
@@ -781,14 +765,90 @@ export default function MshtasticBoilerplate() {
       {/* Action Queue (localStorage) */}
       <div style={{ marginBottom: "20px" }}>
         <h2>Action Queue (localStorage)</h2>
-        <button
-          onClick={() => {
-            setActionQueue([]);
-          }}
-          style={{ marginBottom: "10px" }}
-        >
-          Clear Queue
-        </button>
+        <div style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
+          <button
+            disabled={isProcessing || actionQueue.length === 0}
+            onClick={async () => {
+              setIsProcessing(true);
+              setProcessReport(null);
+              const snapshot = [...actionQueue];
+              const report: { timestamp: number; action: string; status: number | "error"; response: any }[] = [];
+              for (const record of snapshot) {
+                try {
+                  const res = await fetch("/api/sendToEvvm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(record.field),
+                  });
+                  const data = await res.json();
+                  console.log(`[Queue] ${record.action} @ ${record.timestamp} → ${res.status}`, data);
+                  report.push({ timestamp: record.timestamp, action: record.action, status: res.status, response: data });
+                  // remove from queue after dispatch
+                  setActionQueue((prev) => prev.filter((r) => r.timestamp !== record.timestamp));
+                } catch (err) {
+                  console.error(`[Queue] ${record.action} @ ${record.timestamp} failed:`, err);
+                  report.push({ timestamp: record.timestamp, action: record.action, status: "error", response: String(err) });
+                }
+              }
+              setProcessReport(report);
+              setIsProcessing(false);
+            }}
+          >
+            {isProcessing ? "Processing..." : `Process Queue (${actionQueue.length})`}
+          </button>
+          <button
+            disabled={isProcessing}
+            onClick={() => setActionQueue([])}
+          >
+            Clear Queue
+          </button>
+        </div>
+
+        {/* Process Report */}
+        {processReport && (
+          <div
+            style={{
+              marginBottom: "16px",
+              border: "1px solid #888",
+              borderRadius: "4px",
+              padding: "12px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <strong>Process Report ({processReport.length} items)</strong>
+              <button onClick={() => setProcessReport(null)}>Dismiss</button>
+            </div>
+            {processReport.map((entry, i) => (
+              <div
+                key={i}
+                style={{
+                  marginBottom: "8px",
+                  padding: "8px",
+                  borderLeft: `4px solid ${
+                    typeof entry.status === "number" && entry.status >= 200 && entry.status < 300
+                      ? "#22c55e"
+                      : "#ef4444"
+                  }`,
+                  background: "#fafafa",
+                  borderRadius: "2px",
+                }}
+              >
+                <p style={{ margin: 0 }}>
+                  <strong>{entry.action}</strong> — Status:{" "}
+                  <code>{entry.status}</code> —{" "}
+                  {new Date(entry.timestamp).toLocaleTimeString()}
+                </p>
+                <details style={{ marginTop: "4px" }}>
+                  <summary style={{ fontSize: "12px", cursor: "pointer" }}>Response</summary>
+                  <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto" }}>
+                    {JSON.stringify(entry.response, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            ))}
+          </div>
+        )}
+
         {actionQueue.length === 0 ? (
           <p>No actions stored</p>
         ) : (
@@ -830,27 +890,6 @@ export default function MshtasticBoilerplate() {
                   {JSON.stringify(record.field, null, 2)}
                 </pre>
               </details>
-              <button
-                style={{ marginTop: "8px" }}
-                onClick={() => {
-                  fetch("/api/sendToEvvm", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(record.field),
-                  })
-                    .then((res) => res.json())
-                    .then((data) => {
-                      console.log("[API] Manual submit response:", data);
-                      alert("Submitted! Check console for response.");
-                    })
-                    .catch((err) => {
-                      console.error("[API] Manual submit failed:", err);
-                      alert("Submit failed. Check console for details.");
-                    });
-                }}
-              >
-                Submit to API
-              </button>
             </div>
           ))
         )}
