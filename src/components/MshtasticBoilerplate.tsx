@@ -24,7 +24,7 @@ if (!util.formatWithOptions) {
   };
 }
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MeshDevice, Types } from "@meshtastic/core";
 import { TransportWebSerial } from "@meshtastic/transport-web-serial";
 import { Channel as ChannelProto } from "@meshtastic/protobufs";
@@ -56,6 +56,14 @@ interface MeshMessage {
   timestamp: number;
   /** Source event that captured the message (optional) */
   source?: string;
+}
+
+interface ActionRecord {
+  action: string;
+  field: any[];
+  from: number | string;
+  channel: number;
+  timestamp: number;
 }
 
 /**
@@ -209,6 +217,25 @@ export default function MshtasticBoilerplate() {
   /** Array of received messages */
   const [messages, setMessages] = useState<MeshMessage[]>([]);
 
+  /** Queue of decoded action records (persisted in localStorage) */
+  const [actionQueue, setActionQueue] = useState<ActionRecord[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem("actionQueue");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("actionQueue", JSON.stringify(actionQueue));
+    } catch (err) {
+      console.error("[Mesh] Failed to persist actionQueue:", err);
+    }
+  }, [actionQueue]);
+
   /** Primary channel PSK in Base64 format */
   const [primaryPSK, setPrimaryPSK] = useState("");
 
@@ -312,12 +339,23 @@ export default function MshtasticBoilerplate() {
           try {
             const decoded = decodeArgs(text.slice(2));
             console.log("[Mesh] Decoded EVVM args:", decoded);
+            const record: ActionRecord = {
+              action: "sendToEvvm",
+              field: decoded,
+              from: packet.from,
+              channel: packet.channel,
+              timestamp: Date.now(),
+            };
+            setActionQueue((prev) => {
+              const next = [...prev, record];
+              return next;
+            });
             setMessages((prev) => [
               ...prev,
               {
                 channel: packet.channel,
                 from: packet.from,
-                text: "EVVM TX: " + JSON.stringify(decoded),
+                text: "[sendToEvvm] " + JSON.stringify(decoded),
                 timestamp: Date.now(),
                 source: "evvm",
               },
