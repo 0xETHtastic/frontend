@@ -249,8 +249,8 @@ function encodeArgs(args: any[]): string {
   const sigB64 = btoa(String.fromCharCode(...sigBytes));
 
   return [
-    addr(String(args[0])),  // to
-    addr(String(args[1])),  // from
+    addr(String(args[0])),  // from (signer)
+    addr(String(args[1])),  // to (recipient)
     String(args[4]),        // amount
     String(args[5]),        // priorityFee
     String(args[8]),        // nonce
@@ -278,8 +278,8 @@ function decodeArgs(encoded: string): SendToEvvmField {
   }
 
   return {
-    to: restoreAddr(parts[0]),
-    from: restoreAddr(parts[1]),
+    from: restoreAddr(parts[0]),  // parts[0] = from (signer)
+    to: restoreAddr(parts[1]),    // parts[1] = to (recipient)
     identity: "",
     token: ZERO_FULL,
     amount: parts[2],
@@ -1039,10 +1039,9 @@ export default function MshtasticBoilerplate() {
               const report: { timestamp: number; action: string; status: number | "error"; response: any }[] = [];
               for (const record of snapshot) {
                 try {
-                  const BASE_URL = "https://ethastic-api.up.railway.app";
                   const endpoint = record.action === "executeCrosschain"
-                    ? `${BASE_URL}/executeCrosschain`
-                    : `${BASE_URL}/sendToEvvm`;
+                    ? "/api/executeCrosschain"
+                    : "/api/sendToEvvm";
                   const body = record.action === "executeCrosschain"
                     ? JSON.stringify({ user: record.user ?? record.from, ...(record.field as CctpField) })
                     : JSON.stringify(record.field);
