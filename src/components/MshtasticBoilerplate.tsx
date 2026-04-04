@@ -58,9 +58,23 @@ interface MeshMessage {
   source?: string;
 }
 
+interface SendToEvvmField {
+  to: string;
+  from: string;
+  identity: string;
+  token: string;
+  amount: string;
+  priorityFee: string;
+  executor: string;
+  addr7: string;
+  nonce: string;
+  isAsyncExec: boolean;
+  signature: string;
+}
+
 interface ActionRecord {
   action: string;
-  field: any[];
+  field: SendToEvvmField | Record<string, any>;
   from: number | string;
   channel: number;
   timestamp: number;
@@ -154,7 +168,7 @@ function encodeArgs(args: any[]): string {
  * re-inserts identity (empty), token/executor/addr7 as address(0),
  * converts base64 signature back to hex, and restores boolean.
  */
-function decodeArgs(encoded: string): any[] {
+function decodeArgs(encoded: string): SendToEvvmField {
   const ZERO_FULL = "0x" + ZERO_ADDR;
   const parts = encoded.split("|");
   const restoreAddr = (v: string) => v === "Z" ? ZERO_FULL : "0x" + v;
@@ -166,19 +180,19 @@ function decodeArgs(encoded: string): any[] {
     sigHex += sigBinary.charCodeAt(i).toString(16).padStart(2, "0");
   }
 
-  return [
-    restoreAddr(parts[0]),  // to
-    restoreAddr(parts[1]),  // from
-    "",                     // identity (always empty)
-    ZERO_FULL,              // token (always address(0))
-    parts[2],               // amount
-    parts[3],               // priorityFee
-    ZERO_FULL,              // executor (always address(0))
-    ZERO_FULL,              // addr7 (always address(0))
-    parts[4],               // nonce
-    parts[5] === "1",       // isAsyncExec
-    sigHex,                 // signature
-  ];
+  return {
+    to: restoreAddr(parts[0]),
+    from: restoreAddr(parts[1]),
+    identity: "",
+    token: ZERO_FULL,
+    amount: parts[2],
+    priorityFee: parts[3],
+    executor: ZERO_FULL,
+    addr7: ZERO_FULL,
+    nonce: parts[4],
+    isAsyncExec: parts[5] === "1",
+    signature: sigHex,
+  };
 }
 
 /**
@@ -353,6 +367,23 @@ export default function MshtasticBoilerplate() {
               const next = [...prev, record];
               return next;
             });
+            // Send to API if online
+            if (navigator.onLine) {
+              fetch("/api/sendToEvvm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(record.field),
+              })
+                .then((res) => res.json())
+                .then((data) => {
+                  console.log("[API] sendToEvvm response:", data);
+                })
+                .catch((err) => {
+                  console.error("[API] sendToEvvm request failed:", err);
+                });
+            } else {
+              console.warn("[API] Offline — sendToEvvm not sent, stored locally only");
+            }
             setMessages((prev) => [
               ...prev,
               {
@@ -784,7 +815,7 @@ export default function MshtasticBoilerplate() {
                 {new Date(record.timestamp).toLocaleString()}
               </p>
               <details>
-                <summary>Field data ({record.field.length} args)</summary>
+                <summary>Field data ({Object.keys(record.field).length} fields)</summary>
                 <pre
                   style={{
                     background: "#f5f5f5",
@@ -797,6 +828,27 @@ export default function MshtasticBoilerplate() {
                   {JSON.stringify(record.field, null, 2)}
                 </pre>
               </details>
+              <button
+                style={{ marginTop: "8px" }}
+                onClick={() => {
+                  fetch("/api/sendToEvvm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(record.field),
+                  })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      console.log("[API] Manual submit response:", data);
+                      alert("Submitted! Check console for response.");
+                    })
+                    .catch((err) => {
+                      console.error("[API] Manual submit failed:", err);
+                      alert("Submit failed. Check console for details.");
+                    });
+                }}
+              >
+                Submit to API
+              </button>
             </div>
           ))
         )}
