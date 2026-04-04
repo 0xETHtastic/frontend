@@ -11,6 +11,8 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
     "@evvm/evvm-js": "^0.1.32",
+    "@mantine/core": "^9.0.0",
+    "@mantine/hooks": "^9.0.0",
     "@meshtastic/core": "^2.6.7",
     "@meshtastic/protobufs": "^2.7.18",
     "@meshtastic/transport-web-serial": "^0.2.5",
@@ -19,6 +21,9 @@
     "@tanstack/react-query": "^5.59.20",
     "lz-string": "^1.5.0",
     "next": "15.3.9",
+    "postcss": "^8.5.8",
+    "postcss-preset-mantine": "^1.18.0",
+    "postcss-simple-vars": "^7.0.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "viem": "^2.47.0",
