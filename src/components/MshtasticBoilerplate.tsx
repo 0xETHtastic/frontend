@@ -100,6 +100,7 @@ interface ActionRecord {
   action: string;
   field: SendToEvvmField | CctpField | Record<string, any>;
   from: number | string;
+  user?: string;
   channel: number;
   timestamp: number;
 }
@@ -1038,11 +1039,17 @@ export default function MshtasticBoilerplate() {
               const report: { timestamp: number; action: string; status: number | "error"; response: any }[] = [];
               for (const record of snapshot) {
                 try {
-                  const endpoint = record.action === "executeCrosschain" ? "/api/executeCrosschain" : "/api/sendToEvvm";
+                  const BASE_URL = "https://ethastic-api.up.railway.app";
+                  const endpoint = record.action === "executeCrosschain"
+                    ? `${BASE_URL}/executeCrosschain`
+                    : `${BASE_URL}/sendToEvvm`;
+                  const body = record.action === "executeCrosschain"
+                    ? JSON.stringify({ user: record.user ?? record.from, ...(record.field as CctpField) })
+                    : JSON.stringify(record.field);
                   const res = await fetch(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(record.field),
+                    body,
                   });
                   const data = await res.json();
                   console.log(`[Queue] ${record.action} @ ${record.timestamp} → ${res.status}`, data);
