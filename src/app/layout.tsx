@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-
+import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
+import '@mantine/core/styles.css';
 
 import { headers } from 'next/headers' // added
 import './globals.css';
@@ -19,9 +20,14 @@ export default async function RootLayout({
   const cookies = headersData.get('cookie');
 
   return (
-    <html lang="en">
+    <html lang="en" {...mantineHtmlProps}>
+      <head>
+        <ColorSchemeScript />
+      </head>
       <body>
-        <ContextProvider cookies={cookies}>{children}</ContextProvider>
+        <MantineProvider>
+          <ContextProvider cookies={cookies}>{children}</ContextProvider>
+        </MantineProvider>
       </body>
     </html>
   );

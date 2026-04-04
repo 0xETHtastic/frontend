@@ -25,6 +25,17 @@ if (!util.formatWithOptions) {
 }
 
 import { useState, useEffect } from "react";
+import {
+  Button,
+  TextInput,
+  NativeSelect,
+  Group,
+  Stack,
+  Paper,
+  Title,
+  Text,
+  Code,
+} from "@mantine/core";
 import { MeshDevice, Types } from "@meshtastic/core";
 import { TransportWebSerial } from "@meshtastic/transport-web-serial";
 import { Channel as ChannelProto } from "@meshtastic/protobufs";
@@ -639,135 +650,135 @@ export default function MshtasticBoilerplate() {
   // ============================================
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Meshtastic Serial Boilerplate</h1>
+    <Stack p="md" style={{ maxWidth: "860px", margin: "0 auto" }}>
+      <Title order={1}>Meshtastic Serial Boilerplate</Title>
 
       {/* Connection Section */}
-      <div style={{ marginBottom: "20px" }}>
-        <h2>Connection</h2>
-        <p>Status: {isConnected ? "Connected" : "Disconnected"}</p>
+      <Paper withBorder p="md">
+        <Title order={2} mb="sm">Connection</Title>
+        <Text>Status: {isConnected ? "Connected" : "Disconnected"}</Text>
         {!isConnected ? (
-          <button onClick={connect}>Connect Serial</button>
+          <Button onClick={connect} mt="sm">Connect Serial</Button>
         ) : (
-          <button onClick={disconnect}>Disconnect</button>
+          <Button onClick={disconnect} color="red" mt="sm">Disconnect</Button>
         )}
-      </div>
+      </Paper>
 
-      {/* Primary Channel Configuration */}
-      <div style={{ marginBottom: "20px" }}>
-        <h2>Primary Channel (0)</h2>
-        <div style={{ marginBottom: "10px" }}>
-          <label>PSK Size: </label>
-          <select
+      {/* Primary Channel Configuration
+      <Paper withBorder p="md">
+        <Title order={2} mb="sm">Primary Channel (0)</Title>
+        <Group align="flex-end" mb="sm">
+          <NativeSelect
+            label="PSK Size"
             value={primaryPSKSize}
             onChange={(e) => setPrimaryPSKSize(e.target.value as PSKSize)}
-          >
-            <option value="none">None (No encryption)</option>
-            <option value="8bit">8 bits (Simple)</option>
-            <option value="128bit">128 bits (AES-128)</option>
-            <option value="256bit">256 bits (AES-256)</option>
-          </select>
-          <button onClick={generatePrimaryPSK}>Generate</button>
-        </div>
-        <input
-          type="text"
-          placeholder="Base64 PSK (or generate above)"
-          value={primaryPSK}
-          onChange={(e) => setPrimaryPSK(e.target.value)}
-          style={{ width: "300px" }}
-        />
-        <button onClick={setupPrimaryPSK} disabled={!isConnected}>
-          Set Primary PSK
-        </button>
-      </div>
+            data={[
+              { value: "none", label: "None (No encryption)" },
+              { value: "8bit", label: "8 bits (Simple)" },
+              { value: "128bit", label: "128 bits (AES-128)" },
+              { value: "256bit", label: "256 bits (AES-256)" },
+            ]}
+          />
+          <Button onClick={generatePrimaryPSK}>Generate</Button>
+        </Group>
+        <Group align="flex-end">
+          <TextInput
+            label="PSK"
+            placeholder="Base64 PSK (or generate above)"
+            value={primaryPSK}
+            onChange={(e) => setPrimaryPSK(e.target.value)}
+            style={{ width: "300px" }}
+          />
+          <Button onClick={setupPrimaryPSK} disabled={!isConnected}>Set Primary PSK</Button>
+        </Group>
+      </Paper>
+       */}
 
-      {/* Secondary Channel Configuration */}
-      <div style={{ marginBottom: "20px" }}>
-        <h2>Secondary Channel (1)</h2>
-        <div style={{ marginBottom: "10px" }}>
-          <label>PSK Size: </label>
-          <select
+      {/* Secondary Channel Configuration 
+      <Paper withBorder p="md">
+        <Title order={2} mb="sm">Secondary Channel (1)</Title>
+        <Group align="flex-end" mb="sm">
+          <NativeSelect
+            label="PSK Size"
             value={secondaryPSKSize}
             onChange={(e) => setSecondaryPSKSize(e.target.value as PSKSize)}
-          >
-            <option value="none">None (No encryption)</option>
-            <option value="8bit">8 bits (Simple)</option>
-            <option value="128bit">128 bits (AES-128)</option>
-            <option value="256bit">256 bits (AES-256)</option>
-          </select>
-          <button onClick={generateSecondaryPSK}>Generate</button>
-        </div>
-        <input
-          type="text"
-          placeholder="Base64 PSK (or generate above)"
-          value={secondaryPSK}
-          onChange={(e) => setSecondaryPSK(e.target.value)}
-          style={{ width: "300px" }}
-        />
-        <button onClick={setupSecondaryPSK} disabled={!isConnected}>
-          Set Secondary PSK
-        </button>
-      </div>
+            data={[
+              { value: "none", label: "None (No encryption)" },
+              { value: "8bit", label: "8 bits (Simple)" },
+              { value: "128bit", label: "128 bits (AES-128)" },
+              { value: "256bit", label: "256 bits (AES-256)" },
+            ]}
+          />
+          <Button onClick={generateSecondaryPSK}>Generate</Button>
+        </Group>
+        <Group align="flex-end">
+          <TextInput
+            label="PSK"
+            placeholder="Base64 PSK (or generate above)"
+            value={secondaryPSK}
+            onChange={(e) => setSecondaryPSK(e.target.value)}
+            style={{ width: "300px" }}
+          />
+          <Button onClick={setupSecondaryPSK} disabled={!isConnected}>Set Secondary PSK</Button>
+        </Group>
+      </Paper>
+      */}
+
+      
+      {/* EVVM Signature */}
+      <Paper withBorder p="md" style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+      }}>
+        <Title order={2} mb="sm">Payment execution</Title>
+        <Stack>
+          <TextInput id="toAddressInput_Pay" placeholder="To Address" label="To Address" style={{
+            width:"30vw"
+          }} />
+          <TextInput id="amountTokenInput_Pay" placeholder="Amount" label="Amount" />
+          <TextInput id="priorityFeeInput_Pay" placeholder="Priority Fee (gwei)" label="Priority Fee (gwei)" />
+          <TextInput id="nonceInput_Pay" placeholder="Nonce" label="Nonce" />
+          <Button onClick={makeSig}>Create Signature</Button>
+        </Stack>
+      </Paper>
 
       {/* Send Message Section */}
-      <div style={{ marginBottom: "20px" }}>
-        <h2>Send Message</h2>
-        <select
-          value={channel}
-          onChange={(e) => setChannel(Number(e.target.value))}
+      <Paper withBorder p="md">
+        <Title order={2} mb="sm">Send Message</Title>
+        <Group align="flex-end" 
+          style={{
+            flexDirection: "column",
+            alignItems: "stretch",
+          }}
         >
-          <option value={0}>Primary (0)</option>
-          <option value={1}>Secondary (1)</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Message"
-          value={messageText}
-          onChange={(e) => setMessageText(e.target.value)}
-        />
-        <button onClick={sendMessage} disabled={!isConnected}>
-          Send
-        </button>
-        <button onClick={sendTestMessage} disabled={!isConnected}>
-          Send Test Message
-        </button>
-      </div>
-
-      <div>
-        <h2>EVVM Signature Test</h2>
-        <input
-          id="toAddressInput_Pay"
-          type="text"
-          placeholder="To Address"
-          style={{ width: "300px", marginBottom: "10px" }}
-        />
-        <input
-          id="amountTokenInput_Pay"
-          type="text"
-          placeholder="Amount"
-          style={{ width: "300px", marginBottom: "10px" }}
-        />
-        <input
-          id="priorityFeeInput_Pay"
-          type="text"
-          placeholder="Priority Fee (gwei)"
-          style={{ width: "300px", marginBottom: "10px" }}
-        />
-        <input
-          id="nonceInput_Pay"
-          type="text"
-          placeholder="Nonce"
-          style={{ width: "300px", marginBottom: "10px" }}
-        />
-        <button onClick={makeSig}>Create Signature</button>
-      </div>
+          {/*<NativeSelect
+            label="Channel"
+            value={String(channel)}
+            onChange={(e) => setChannel(Number(e.target.value))}
+            data={[
+              { value: "0", label: "Primary (0)" },
+              { value: "1", label: "Secondary (1)" },
+            ]}
+          />*/}
+          <TextInput
+            label="Message"
+            placeholder="Message"
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            
+          />
+          <Button onClick={sendMessage} disabled={!isConnected}>Send</Button>
+        </Group>
+      </Paper>
 
       {/* Action Queue (localStorage) */}
-      <div style={{ marginBottom: "20px" }}>
-        <h2>Action Queue (localStorage)</h2>
-        <div style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-          <button
+      <Paper withBorder p="md">
+        <Title order={2} mb="sm">Action Queue (localStorage)</Title>
+        <Group mb="sm">
+          <Button
             disabled={isProcessing || actionQueue.length === 0}
+            loading={isProcessing}
             onClick={async () => {
               setIsProcessing(true);
               setProcessReport(null);
@@ -783,7 +794,6 @@ export default function MshtasticBoilerplate() {
                   const data = await res.json();
                   console.log(`[Queue] ${record.action} @ ${record.timestamp} → ${res.status}`, data);
                   report.push({ timestamp: record.timestamp, action: record.action, status: res.status, response: data });
-                  // remove from queue after dispatch
                   setActionQueue((prev) => prev.filter((r) => r.timestamp !== record.timestamp));
                 } catch (err) {
                   console.error(`[Queue] ${record.action} @ ${record.timestamp} failed:`, err);
@@ -795,129 +805,108 @@ export default function MshtasticBoilerplate() {
             }}
           >
             {isProcessing ? "Processing..." : `Process Queue (${actionQueue.length})`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            color="red"
             disabled={isProcessing}
             onClick={() => setActionQueue([])}
           >
             Clear Queue
-          </button>
-        </div>
+          </Button>
+        </Group>
 
         {/* Process Report */}
         {processReport && (
-          <div
-            style={{
-              marginBottom: "16px",
-              border: "1px solid #888",
-              borderRadius: "4px",
-              padding: "12px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <strong>Process Report ({processReport.length} items)</strong>
-              <button onClick={() => setProcessReport(null)}>Dismiss</button>
-            </div>
-            {processReport.map((entry, i) => (
-              <div
-                key={i}
-                style={{
-                  marginBottom: "8px",
-                  padding: "8px",
-                  borderLeft: `4px solid ${
-                    typeof entry.status === "number" && entry.status >= 200 && entry.status < 300
-                      ? "#22c55e"
-                      : "#ef4444"
-                  }`,
-                  background: "#fafafa",
-                  borderRadius: "2px",
-                }}
-              >
-                <p style={{ margin: 0 }}>
-                  <strong>{entry.action}</strong> — Status:{" "}
-                  <code>{entry.status}</code> —{" "}
-                  {new Date(entry.timestamp).toLocaleTimeString()}
-                </p>
-                <details style={{ marginTop: "4px" }}>
-                  <summary style={{ fontSize: "12px", cursor: "pointer" }}>Response</summary>
-                  <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto" }}>
-                    {JSON.stringify(entry.response, null, 2)}
-                  </pre>
-                </details>
-              </div>
-            ))}
-          </div>
+          <Paper withBorder p="sm" mb="sm">
+            <Group justify="space-between" mb="xs">
+              <Text fw={600}>Process Report ({processReport.length} items)</Text>
+              <Button size="xs" variant="subtle" onClick={() => setProcessReport(null)}>Dismiss</Button>
+            </Group>
+            <Stack gap="xs">
+              {processReport.map((entry, i) => (
+                <Paper
+                  key={i}
+                  p="xs"
+                  style={{
+                    borderLeft: `4px solid ${
+                      typeof entry.status === "number" && entry.status >= 200 && entry.status < 300
+                        ? "#22c55e"
+                        : "#ef4444"
+                    }`,
+                  }}
+                >
+                  <Text size="sm">
+                    <strong>{entry.action}</strong> — Status: <Code>{entry.status}</Code> — {new Date(entry.timestamp).toLocaleTimeString()}
+                  </Text>
+                  <details style={{ marginTop: "4px" }}>
+                    <summary style={{ fontSize: "12px", cursor: "pointer" }}>Response</summary>
+                    <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                      {JSON.stringify(entry.response, null, 2)}
+                    </pre>
+                  </details>
+                </Paper>
+              ))}
+            </Stack>
+          </Paper>
         )}
 
         {actionQueue.length === 0 ? (
-          <p>No actions stored</p>
+          <Text c="dimmed">No actions stored</Text>
         ) : (
-          actionQueue.map((record, i) => (
-            <div
-              key={i}
-              style={{
-                marginBottom: "10px",
-                border: "1px solid #444",
-                borderLeft: "4px solid #0070f3",
-                padding: "10px",
-                borderRadius: "4px",
-              }}
-            >
-              <p>
-                <strong>Action:</strong> {record.action}
-              </p>
-              <p>
-                <strong>From:</strong> {record.from}
-              </p>
-              <p>
-                <strong>Channel:</strong> {record.channel}
-              </p>
-              <p>
-                <strong>Time:</strong>{" "}
-                {new Date(record.timestamp).toLocaleString()}
-              </p>
-              <details>
-                <summary>Field data ({Object.keys(record.field).length} fields)</summary>
-                <pre
-                  style={{
-                    background: "#f5f5f5",
-                    padding: "8px",
-                    borderRadius: "4px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                  }}
-                >
-                  {JSON.stringify(record.field, null, 2)}
-                </pre>
-              </details>
-            </div>
-          ))
+          <Stack gap="sm">
+            {actionQueue.map((record, i) => (
+              <Paper
+                key={i}
+                withBorder
+                p="sm"
+                style={{ borderLeft: "4px solid #228be6" }}
+              >
+                <Text size="sm"><strong>Action:</strong> {record.action}</Text>
+                <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {record.from}</Text>
+                <Text size="sm"><strong>Channel:</strong> {record.channel}</Text>
+                <Text size="sm"><strong>Time:</strong> {new Date(record.timestamp).toLocaleString()}</Text>
+                <details style={{ marginTop: "8px" }}>
+                  <summary style={{ fontSize: "12px", cursor: "pointer" }}>Field data ({Object.keys(record.field).length} fields)</summary>
+                  <pre
+                    style={{
+                      background: "#f5f5f5",
+                      padding: "8px",
+                      borderRadius: "4px",
+                      overflow: "auto",
+                      fontSize: "12px",
+                      marginTop: "4px",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {JSON.stringify(record.field, null, 2)}
+                  </pre>
+                </details>
+              </Paper>
+            ))}
+          </Stack>
         )}
-      </div>
+      </Paper>
 
       {/* Messages Display Section */}
-      <div>
-        <h2>Messages</h2>
+      <Paper withBorder p="md">
+        <Title order={2} mb="sm">Messages</Title>
         {messages.length === 0 ? (
-          <p>No messages</p>
+          <Text c="dimmed">No messages</Text>
         ) : (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              style={{
-                marginBottom: "10px",
-                border: "1px solid black",
-                padding: "10px",
-              }}
-            >
-              <p>Channel: {msg.channel}</p>
-              <p>From: {msg.from}</p>
-              <p>Text: {msg.text}</p>
-              <p>Time: {new Date(msg.timestamp).toLocaleString()}</p>
-            </div>
-          ))
+          <Stack gap="sm">
+            {messages.map((msg, i) => (
+              <Paper key={i} withBorder p="sm">
+                <Text size="sm">Channel: {msg.channel}</Text>
+                <Text size="sm" style={{ wordBreak: "break-all" }}>From: {msg.from}</Text>
+                <Text size="sm" style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>Text: {msg.text}</Text>
+                <Text size="sm">Time: {new Date(msg.timestamp).toLocaleString()}</Text>
+              </Paper>
+            ))}
+          </Stack>
         )}
-      </div>
-    </div>
+      </Paper>
+    </Stack>
   );
 }
