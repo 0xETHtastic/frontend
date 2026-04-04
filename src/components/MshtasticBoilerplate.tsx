@@ -218,15 +218,18 @@ export default function MshtasticBoilerplate() {
   const [messages, setMessages] = useState<MeshMessage[]>([]);
 
   /** Queue of decoded action records (persisted in localStorage) */
-  const [actionQueue, setActionQueue] = useState<ActionRecord[]>(() => {
-    if (typeof window === "undefined") return [];
+  const [actionQueue, setActionQueue] = useState<ActionRecord[]>([]);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem("actionQueue");
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        setActionQueue(JSON.parse(stored));
+      }
     } catch {
-      return [];
+      // ignore parse errors
     }
-  });
+  }, []);
 
   useEffect(() => {
     try {
@@ -740,6 +743,63 @@ export default function MshtasticBoilerplate() {
           style={{ width: "300px", marginBottom: "10px" }}
         />
         <button onClick={makeSig}>Create Signature</button>
+      </div>
+
+      {/* Action Queue (localStorage) */}
+      <div style={{ marginBottom: "20px" }}>
+        <h2>Action Queue (localStorage)</h2>
+        <button
+          onClick={() => {
+            setActionQueue([]);
+          }}
+          style={{ marginBottom: "10px" }}
+        >
+          Clear Queue
+        </button>
+        {actionQueue.length === 0 ? (
+          <p>No actions stored</p>
+        ) : (
+          actionQueue.map((record, i) => (
+            <div
+              key={i}
+              style={{
+                marginBottom: "10px",
+                border: "1px solid #444",
+                borderLeft: "4px solid #0070f3",
+                padding: "10px",
+                borderRadius: "4px",
+              }}
+            >
+              <p>
+                <strong>Action:</strong> {record.action}
+              </p>
+              <p>
+                <strong>From:</strong> {record.from}
+              </p>
+              <p>
+                <strong>Channel:</strong> {record.channel}
+              </p>
+              <p>
+                <strong>Time:</strong>{" "}
+                {new Date(record.timestamp).toLocaleString()}
+              </p>
+              <details>
+                <summary>Field data ({record.field.length} args)</summary>
+                <pre
+                  style={{
+                    background: "#f5f5f5",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    overflow: "auto",
+                    fontSize: "12px",
+                  }}
+                >
+                  {JSON.stringify(record.field, null, 2)}
+                </pre>
+              </details>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Messages Display Section */}
