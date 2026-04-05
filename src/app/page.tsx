@@ -2,7 +2,7 @@
 import { ConnectButton } from "@/components/ConnectButton";
 import { ActionButtonList } from "@/components/ActionButtonList";
 import Image from 'next/image';
-import MshtasticBoilerplate from "@/components/MshtasticBoilerplate";
+import MeshtasticComponent from "@/components/MeshtasticComponent";
 
 export default function Home() {
 
@@ -37,7 +37,7 @@ export default function Home() {
         width: "min(90vw, 700px)",
       }}
     >
-      <MshtasticBoilerplate  /></div>
+      <MeshtasticComponent  /></div>
       
     </div>
   );

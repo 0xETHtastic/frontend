@@ -296,29 +296,8 @@ function decodeArgs(encoded: string): SendToEvvmField {
   };
 }
 
-/**
- * Meshtastic Serial Boilerplate Component.
- *
- * A comprehensive React component for interacting with Meshtastic devices
- * through the Web Serial API. Supports connection management, channel
- * configuration with PSK encryption, and bidirectional messaging.
- *
- * @remarks
- * This component requires a browser that supports the Web Serial API
- * (Chrome, Edge, or other Chromium-based browsers).
- *
- * @example
- * ```tsx
- * import MshtasticBoilerplate from '@/components/mshtasticBoilerplate'
- *
- * export default function Page() {
- *   return <MshtasticBoilerplate />
- * }
- * ```
- *
- * @returns The rendered Meshtastic boilerplate UI
- */
-export default function MshtasticBoilerplate() {
+
+export default function MeshtasticComponent() {
   // ============================================
   // State Variables
   // ============================================
