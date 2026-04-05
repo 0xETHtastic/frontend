@@ -122,28 +122,131 @@ h1 {
   color: var(--ctp-overlay1) !important;
 }
 
-pre {
-  white-space: pre-wrap; /* Wrap text */
-  word-wrap: break-word; /* Break long words */
-  word-break: break-all;
+/* Mantine labels */
+.mantine-TextInput-label,
+.mantine-NativeSelect-label {
+  color: var(--ctp-subtext1) !important;
 }
 
+/* Mantine Paper borders */
+.mantine-Paper-root {
+  border-color: var(--ctp-surface1) !important;
+}
+
+/* Mantine Code inline */
+.mantine-Code-root {
+  background-color: var(--ctp-surface0) !important;
+  color: var(--ctp-peach) !important;
+}
+
+/* Focus ring */
+.mantine-TextInput-input:focus,
+.mantine-NativeSelect-input:focus {
+  border-color: var(--ctp-lavender) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(180, 190, 254, 0.25) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ctp-mantle);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ctp-surface2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ctp-overlay0);
+}
+
+/* Strong text */
+strong {
+  color: var(--ctp-text);
+}
+
+/* Mantine Button overrides */
+.mantine-Button-root {
+  background-color: var(--ctp-surface0) !important;
+  color: var(--ctp-text) !important;
+  border: 1px solid var(--ctp-surface2) !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mantine-Button-root:hover:not(:disabled) {
+  background-color: var(--ctp-mauve) !important;
+  color: var(--ctp-crust) !important;
+  border-color: var(--ctp-mauve) !important;
+}
+
+.mantine-Button-root:active:not(:disabled) {
+  background-color: var(--ctp-lavender) !important;
+  border-color: var(--ctp-lavender) !important;
+}
+
+.mantine-Button-root:disabled {
+  background-color: var(--ctp-surface0) !important;
+  color: var(--ctp-overlay0) !important;
+  border-color: var(--ctp-surface1) !important;
+  opacity: 0.6;
+}
+
+.mantine-Button-root[data-color="red"] {
+  background-color: var(--ctp-red) !important;
+  color: var(--ctp-crust) !important;
+  border-color: var(--ctp-red) !important;
+}
+
+.mantine-Button-root[data-color="red"]:hover:not(:disabled) {
+  background-color: var(--ctp-maroon) !important;
+  border-color: var(--ctp-maroon) !important;
+}
+
+/* Selection highlight */
+::selection {
+  background-color: var(--ctp-surface2);
+  color: var(--ctp-text);
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-all;
+  background-color: var(--ctp-surface0);
+  color: var(--ctp-text);
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--ctp-surface1);
+}
 
 .link-button {
-  background-color: black;
-  color: white;
+  background-color: var(--ctp-surface0);
+  color: var(--ctp-text);
   padding: 5px 10px;
   text-decoration: none;
   border-radius: 5px;
+  border: 1px solid var(--ctp-surface2);
 }
 
 .link-button:hover {
-  background-color: #333;  /* Darken the background on hover */
+  background-color: var(--ctp-mauve);
+  color: var(--ctp-crust);
 }
 
-.link-button:hover {
-  background-color: white;  /* Change background to white on hover */
-  color: black;  /* Change text color to black on hover */
+/* Mantine Title */
+.mantine-Title-root {
+  color: var(--ctp-text) !important;
+}
+
+/* Mantine Text */
+.mantine-Text-root {
+  color: var(--ctp-subtext1) !important;
 }
 
 .advice {

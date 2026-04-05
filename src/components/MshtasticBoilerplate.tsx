@@ -879,9 +879,9 @@ export default function MshtasticBoilerplate() {
     <Stack p="md" >
 
       {/* Connection Section */}
-      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
+      <Paper withBorder p="md" style={{ backgroundColor: "var(--ctp-surface0)" }}>
         <Title order={2} mb="sm">Connection</Title>
-        <Text>Status: {isConnected ? "Connected" : "Disconnected"}</Text>
+        <Text>Status: <span style={{ color: isConnected ? "var(--ctp-green)" : "var(--ctp-red)" }}>{isConnected ? "Connected" : "Disconnected"}</span></Text>
         {!isConnected ? (
           <Button onClick={connect} mt="sm">Connect Serial</Button>
         ) : (
@@ -952,7 +952,7 @@ export default function MshtasticBoilerplate() {
       
       {/* EVVM Signature */}
       <Paper withBorder p="md" style={{
-          backgroundColor: "#313244",
+          backgroundColor: "var(--ctp-surface0)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -960,7 +960,7 @@ export default function MshtasticBoilerplate() {
         <Title order={2} mb="sm">Payment execution</Title>
         <Stack>
           <TextInput id="toAddressInput_Pay" placeholder="To Address" label="To Address" style={{
-            width:"30vw"
+            width: "min(80vw, 400px)"
           }} />
           <TextInput id="amountTokenInput_Pay" placeholder="Amount" label="Amount" />
           <TextInput id="nonceInput_Pay" placeholder="Nonce" label="Nonce" />
@@ -970,7 +970,7 @@ export default function MshtasticBoilerplate() {
 
       {/* CCTP Crosschain Signature */}
       <Paper withBorder p="md" style={{
-          backgroundColor: "#313244",
+          backgroundColor: "var(--ctp-surface0)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -980,7 +980,7 @@ export default function MshtasticBoilerplate() {
           <NativeSelect
             id="destinationChainInput_CCTP"
             label="Destination Chain"
-            style={{ width: "30vw" }}
+            style={{ width: "min(80vw, 400px)" }}
             data={[
               { value: "ethereum_sepolia", label: "Ethereum Sepolia" },
               { value: "arbitrum_sepolia", label: "Arbitrum Sepolia" },
@@ -1004,7 +1004,7 @@ export default function MshtasticBoilerplate() {
       </Paper>
 
       {/* Send Message Section */}
-      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
+      <Paper withBorder p="md" style={{ backgroundColor: "var(--ctp-surface0)" }}>
         <Title order={2} mb="sm">Send Message</Title>
         <Group align="flex-end" 
           style={{
@@ -1033,7 +1033,7 @@ export default function MshtasticBoilerplate() {
       </Paper>
 
       {/* Action Queue (localStorage) */}
-      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
+      <Paper withBorder p="md" style={{ backgroundColor: "var(--ctp-surface0)" }}>
         <Title order={2} mb="sm">Action Queue (localStorage)</Title>
         <Group mb="sm">
           <Button
@@ -1084,7 +1084,7 @@ export default function MshtasticBoilerplate() {
 
         {/* Process Report */}
         {processReport && (
-          <Paper withBorder p="sm" mb="sm" style={{ backgroundColor: "#181825" }}>
+          <Paper withBorder p="sm" mb="sm" style={{ backgroundColor: "var(--ctp-mantle)" }}>
             <Group justify="space-between" mb="xs">
               <Text fw={600}>Process Report ({processReport.length} items)</Text>
               <Button size="xs" variant="subtle" onClick={() => setProcessReport(null)}>Dismiss</Button>
@@ -1095,11 +1095,11 @@ export default function MshtasticBoilerplate() {
                   key={i}
                   p="xs"
                   style={{
-                    backgroundColor: "#181825",
+                    backgroundColor: "var(--ctp-mantle)",
                     borderLeft: `4px solid ${
                       typeof entry.status === "number" && entry.status >= 200 && entry.status < 300
-                        ? "#22c55e"
-                        : "#ef4444"
+                        ? "var(--ctp-green)"
+                        : "var(--ctp-red)"
                     }`,
                   }}
                 >
@@ -1127,7 +1127,7 @@ export default function MshtasticBoilerplate() {
                 key={i}
                 withBorder
                 p="sm"
-                style={{ backgroundColor: "#181825", borderLeft: "4px solid #89b4fa" }}
+                style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-blue)" }}
               >
                 <Text size="sm"><strong>Action:</strong> {record.action}</Text>
                 <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {record.from}</Text>
@@ -1137,7 +1137,7 @@ export default function MshtasticBoilerplate() {
                   <summary style={{ fontSize: "12px", cursor: "pointer" }}>Field data ({Object.keys(record.field).length} fields)</summary>
                   <pre
                     style={{
-                      background: "#313244",
+                      background: "var(--ctp-surface0)",
                       padding: "8px",
                       borderRadius: "4px",
                       overflow: "auto",
@@ -1157,14 +1157,14 @@ export default function MshtasticBoilerplate() {
       </Paper>
 
       {/* Messages Display Section */}
-      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
+      <Paper withBorder p="md" style={{ backgroundColor: "var(--ctp-surface0)" }}>
         <Title order={2} mb="sm">Messages</Title>
         {messages.length === 0 ? (
           <Text c="dimmed">No messages</Text>
         ) : (
           <Stack gap="sm">
             {messages.map((msg, i) => (
-              <Paper key={i} withBorder p="sm" style={{ backgroundColor: "#181825" }}>
+              <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)" }}>
                 <Text size="sm">Channel: {msg.channel}</Text>
                 <Text size="sm" style={{ wordBreak: "break-all" }}>From: {msg.from}</Text>
                 <Text size="sm" style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>Text: {msg.text}</Text>
