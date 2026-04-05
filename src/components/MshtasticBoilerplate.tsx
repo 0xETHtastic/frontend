@@ -879,7 +879,7 @@ export default function MshtasticBoilerplate() {
     <Stack p="md" >
 
       {/* Connection Section */}
-      <Paper withBorder p="md">
+      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
         <Title order={2} mb="sm">Connection</Title>
         <Text>Status: {isConnected ? "Connected" : "Disconnected"}</Text>
         {!isConnected ? (
@@ -952,6 +952,7 @@ export default function MshtasticBoilerplate() {
       
       {/* EVVM Signature */}
       <Paper withBorder p="md" style={{
+          backgroundColor: "#313244",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -969,6 +970,7 @@ export default function MshtasticBoilerplate() {
 
       {/* CCTP Crosschain Signature */}
       <Paper withBorder p="md" style={{
+          backgroundColor: "#313244",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1002,7 +1004,7 @@ export default function MshtasticBoilerplate() {
       </Paper>
 
       {/* Send Message Section */}
-      <Paper withBorder p="md">
+      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
         <Title order={2} mb="sm">Send Message</Title>
         <Group align="flex-end" 
           style={{
@@ -1031,7 +1033,7 @@ export default function MshtasticBoilerplate() {
       </Paper>
 
       {/* Action Queue (localStorage) */}
-      <Paper withBorder p="md">
+      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
         <Title order={2} mb="sm">Action Queue (localStorage)</Title>
         <Group mb="sm">
           <Button
@@ -1082,7 +1084,7 @@ export default function MshtasticBoilerplate() {
 
         {/* Process Report */}
         {processReport && (
-          <Paper withBorder p="sm" mb="sm">
+          <Paper withBorder p="sm" mb="sm" style={{ backgroundColor: "#181825" }}>
             <Group justify="space-between" mb="xs">
               <Text fw={600}>Process Report ({processReport.length} items)</Text>
               <Button size="xs" variant="subtle" onClick={() => setProcessReport(null)}>Dismiss</Button>
@@ -1093,6 +1095,7 @@ export default function MshtasticBoilerplate() {
                   key={i}
                   p="xs"
                   style={{
+                    backgroundColor: "#181825",
                     borderLeft: `4px solid ${
                       typeof entry.status === "number" && entry.status >= 200 && entry.status < 300
                         ? "#22c55e"
@@ -1124,7 +1127,7 @@ export default function MshtasticBoilerplate() {
                 key={i}
                 withBorder
                 p="sm"
-                style={{ borderLeft: "4px solid #228be6" }}
+                style={{ backgroundColor: "#181825", borderLeft: "4px solid #89b4fa" }}
               >
                 <Text size="sm"><strong>Action:</strong> {record.action}</Text>
                 <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {record.from}</Text>
@@ -1134,7 +1137,7 @@ export default function MshtasticBoilerplate() {
                   <summary style={{ fontSize: "12px", cursor: "pointer" }}>Field data ({Object.keys(record.field).length} fields)</summary>
                   <pre
                     style={{
-                      background: "#f5f5f5",
+                      background: "#313244",
                       padding: "8px",
                       borderRadius: "4px",
                       overflow: "auto",
@@ -1154,14 +1157,14 @@ export default function MshtasticBoilerplate() {
       </Paper>
 
       {/* Messages Display Section */}
-      <Paper withBorder p="md">
+      <Paper withBorder p="md" style={{ backgroundColor: "#313244" }}>
         <Title order={2} mb="sm">Messages</Title>
         {messages.length === 0 ? (
           <Text c="dimmed">No messages</Text>
         ) : (
           <Stack gap="sm">
             {messages.map((msg, i) => (
-              <Paper key={i} withBorder p="sm">
+              <Paper key={i} withBorder p="sm" style={{ backgroundColor: "#181825" }}>
                 <Text size="sm">Channel: {msg.channel}</Text>
                 <Text size="sm" style={{ wordBreak: "break-all" }}>From: {msg.from}</Text>
                 <Text size="sm" style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>Text: {msg.text}</Text>

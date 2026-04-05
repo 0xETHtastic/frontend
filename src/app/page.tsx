@@ -16,9 +16,9 @@ export default function Home() {
           marginTop: "1rem",
           padding: "0.75rem 1.5rem",
           borderRadius: "999px",
-          border: "1px solid #e0e0e0",
-          backgroundColor: "#ffffff",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+          border: "1px solid #45475a",
+          backgroundColor: "#181825",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
           width: "90vw",
         }}
       >
@@ -31,9 +31,9 @@ export default function Home() {
         marginTop: '2rem',
         marginBottom: '2rem',
         padding: '1rem',
-        border: '1px solid #ccc',
+        border: '1px solid #45475a',
         borderRadius: '8px',
-        backgroundColor: '#f9f9f9',
+        backgroundColor: '#181825',
         width: "50vw",
       }}
     >

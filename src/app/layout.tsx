@@ -20,12 +20,12 @@ export default async function RootLayout({
   const cookies = headersData.get('cookie');
 
   return (
-    <html lang="en" {...mantineHtmlProps}>
+    <html lang="en" data-mantine-color-scheme="dark" {...mantineHtmlProps}>
       <head>
-        <ColorSchemeScript />
+        <ColorSchemeScript defaultColorScheme="dark" />
       </head>
       <body>
-        <MantineProvider>
+        <MantineProvider defaultColorScheme="dark">
           <ContextProvider cookies={cookies}>{children}</ContextProvider>
         </MantineProvider>
       </body>
