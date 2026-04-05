@@ -7,8 +7,8 @@ import './globals.css';
 import ContextProvider from '@/context'
 
 export const metadata: Metadata = {
-  title: "AppKit in Next.js + wagmi",
-  description: "AppKit example dApp",
+  title: "Ethastic",
+  description: "Payment terminal, cross-chain transactions, and card payments over Meshtastic mesh networks",
 };
 
 export default async function RootLayout({
