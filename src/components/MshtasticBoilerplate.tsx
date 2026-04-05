@@ -1062,6 +1062,11 @@ export default function MshtasticBoilerplate() {
                   ? String(record.user ?? record.from)
                   : (record.field as SendToEvvmField).from ?? String(record.from);
 
+                // Resolve nonce(s)
+                const nonces = record.action === "executeCrosschain"
+                  ? `${(record.field as CctpField).nonce},${(record.field as CctpField).nonceEvvm}`
+                  : (record.field as SendToEvvmField).nonce ?? "?";
+
                 try {
                   const endpoint = record.action === "executeCrosschain"
                     ? "/api/executeCrosschain"
@@ -1084,10 +1089,10 @@ export default function MshtasticBoilerplate() {
                     let meshMsg: string;
                     if (res.status >= 200 && res.status < 300) {
                       const txHash = data.txHash ?? data.hash ?? data.transactionHash ?? "no-hash";
-                      meshMsg = `c: ${txHash} ${userAddr}`;
+                      meshMsg = `c: ${txHash}|${nonces}|${userAddr}`;
                     } else {
                       const reason = data.error ?? data.message ?? `HTTP ${res.status}`;
-                      meshMsg = `f: ${reason} ${userAddr}`;
+                      meshMsg = `f: ${reason}|${nonces}|${userAddr}`;
                     }
                     try {
                       await device.sendText(meshMsg, undefined, true, channel);
@@ -1103,7 +1108,7 @@ export default function MshtasticBoilerplate() {
                   // Send failure back via Meshtastic
                   if (device && isConnected) {
                     const reason = err instanceof Error ? err.message : String(err);
-                    const meshMsg = `f: ${reason} ${userAddr}`;
+                    const meshMsg = `f: ${reason}|${nonces}|${userAddr}`;
                     try {
                       await device.sendText(meshMsg, undefined, true, channel);
                       console.log("[Queue] Sent failure to mesh:", meshMsg);
@@ -1214,13 +1219,15 @@ export default function MshtasticBoilerplate() {
               // Decode result messages for friendly display
               if (msg.source === "result-ok") {
                 const rest = msg.text.slice(3); // strip "c: "
-                const spaceIdx = rest.indexOf(" ");
-                const txHash = spaceIdx !== -1 ? rest.slice(0, spaceIdx) : rest;
-                const addr = spaceIdx !== -1 ? rest.slice(spaceIdx + 1) : "";
+                const parts = rest.split("|");
+                const txHash = parts[0] ?? "";
+                const nonces = parts[1] ?? "";
+                const addr = parts[2] ?? "";
                 return (
                   <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-green)" }}>
                     <Text size="sm" fw={600} style={{ color: "var(--ctp-green)" }}>Transaction Confirmed</Text>
                     <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Tx Hash:</strong> {txHash}</Text>
+                    {nonces && <Text size="sm"><strong>Nonce{nonces.includes(",") ? "s" : ""}:</strong> {nonces}</Text>}
                     {addr && <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Ordered by:</strong> {addr}</Text>}
                     <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; Node: {msg.from} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
                   </Paper>
@@ -1228,13 +1235,15 @@ export default function MshtasticBoilerplate() {
               }
               if (msg.source === "result-fail") {
                 const rest = msg.text.slice(3); // strip "f: "
-                const lastSpace = rest.lastIndexOf(" ");
-                const reason = lastSpace !== -1 ? rest.slice(0, lastSpace) : rest;
-                const addr = lastSpace !== -1 ? rest.slice(lastSpace + 1) : "";
+                const parts = rest.split("|");
+                const reason = parts[0] ?? "";
+                const nonces = parts[1] ?? "";
+                const addr = parts[2] ?? "";
                 return (
                   <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-red)" }}>
                     <Text size="sm" fw={600} style={{ color: "var(--ctp-red)" }}>Transaction Failed</Text>
                     <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Reason:</strong> {reason}</Text>
+                    {nonces && <Text size="sm"><strong>Nonce{nonces.includes(",") ? "s" : ""}:</strong> {nonces}</Text>}
                     {addr && <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Ordered by:</strong> {addr}</Text>}
                     <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; Node: {msg.from} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
                   </Paper>
