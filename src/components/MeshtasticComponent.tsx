@@ -24,7 +24,7 @@ if (!util.formatWithOptions) {
   };
 }
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Button,
   TextInput,
@@ -163,70 +163,107 @@ const CCTP_CHAIN_NAME: Record<string, string> = {
   A: "arbitrum_sepolia",
 };
 
+const sigToB64 = (hex: string) => {
+  const h = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(h.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
+  }
+  return btoa(String.fromCharCode(...bytes)).replace(/=+$/, "");
+};
+
+const b64ToHex = (b64: string) => {
+  const binary = atob(b64);
+  let hex = "0x";
+  for (let i = 0; i < binary.length; i++) {
+    hex += binary.charCodeAt(i).toString(16).padStart(2, "0");
+  }
+  return hex;
+};
+
 /**
- * Encodes CCTP executeCrosschain call data into a compact Meshtastic string.
- * Format: c=user|chain|amount|nonce|ia|sig|pfee|nonceEvvm|iaEvvm|sigEvvm
- * user: ETH address without 0x prefix. Chain codes: E=ethereum_sepolia, A=arbitrum_sepolia. Sigs in base64 (no padding).
+ * Encodes CCTP crosschain data into two compact Meshtastic messages.
+ * Message 1 (c1=): user|chain|amount|nonce|crosschainSig
+ * Message 2 (c2=): user|nonceEvvm|evvmSig
+ * isAsyncExec/isAsyncExecEvvm always true, priorityFee always "0" — omitted to save space.
  */
-function encodeCctpArgs(
+function encodeCctpMsg1(
   user: string,
   destinationChain: string,
   amount: string,
   nonce: string,
-  isAsyncExec: boolean,
   crosschainSig: string,
-  priorityFeeEvvm: string,
-  nonceEvvm: string,
-  isAsyncExecEvvm: boolean,
-  evvmSig: string
 ): string {
-  const sigToB64 = (hex: string) => {
-    const h = hex.startsWith("0x") ? hex.slice(2) : hex;
-    const bytes = new Uint8Array(h.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-      bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
-    }
-    return btoa(String.fromCharCode(...bytes)).replace(/=+$/, "");
-  };
   const userHex = user.startsWith("0x") ? user.slice(2) : user;
-  return "c=" + [
+  return "c1=" + [
     userHex,
     CCTP_CHAIN_CODE[destinationChain] ?? destinationChain,
     amount,
     nonce,
-    isAsyncExec ? "1" : "0",
     sigToB64(crosschainSig),
-    priorityFeeEvvm,
+  ].join("|");
+}
+
+function encodeCctpMsg2(
+  user: string,
+  nonceEvvm: string,
+  evvmSig: string,
+): string {
+  const userHex = user.startsWith("0x") ? user.slice(2) : user;
+  return "c2=" + [
+    userHex,
     nonceEvvm,
-    isAsyncExecEvvm ? "1" : "0",
     sigToB64(evvmSig),
   ].join("|");
 }
 
-/**
- * Decodes a compact CCTP Meshtastic string (after stripping "c=") back into CctpField + user.
- */
-function decodeCctpArgs(encoded: string): { user: string } & CctpField {
+interface CctpPart1 {
+  user: string;
+  destinationChain: string;
+  amount: string;
+  nonce: string;
+  signature: string;
+}
+
+interface CctpPart2 {
+  user: string;
+  nonceEvvm: string;
+  signatureEvvm: string;
+}
+
+function decodeCctpMsg1(encoded: string): CctpPart1 {
   const parts = encoded.split("|");
-  const b64ToHex = (b64: string) => {
-    const binary = atob(b64);
-    let hex = "0x";
-    for (let i = 0; i < binary.length; i++) {
-      hex += binary.charCodeAt(i).toString(16).padStart(2, "0");
-    }
-    return hex;
-  };
   return {
     user: "0x" + parts[0],
     destinationChain: CCTP_CHAIN_NAME[parts[1]] ?? parts[1],
     amount: parts[2],
     nonce: parts[3],
-    isAsyncExec: parts[4] === "1",
-    signature: b64ToHex(parts[5]),
-    priorityFeeEvvm: parts[6],
-    nonceEvvm: parts[7],
-    isAsyncExecEvvm: parts[8] === "1",
-    signatureEvvm: b64ToHex(parts[9]),
+    signature: b64ToHex(parts[4]),
+  };
+}
+
+function decodeCctpMsg2(encoded: string): CctpPart2 {
+  const parts = encoded.split("|");
+  return {
+    user: "0x" + parts[0],
+    nonceEvvm: parts[1],
+    signatureEvvm: b64ToHex(parts[2]),
+  };
+}
+
+/** Combines both CCTP parts into a full CctpField + user */
+function combineCctpParts(p1: CctpPart1, p2: CctpPart2): { user: string } & CctpField {
+  return {
+    user: p1.user,
+    destinationChain: p1.destinationChain,
+    amount: p1.amount,
+    nonce: p1.nonce,
+    isAsyncExec: true,
+    signature: p1.signature,
+    priorityFeeEvvm: "0",
+    nonceEvvm: p2.nonceEvvm,
+    isAsyncExecEvvm: true,
+    signatureEvvm: p2.signatureEvvm,
   };
 }
 
@@ -328,6 +365,9 @@ export default function MeshtasticComponent() {
 
   /** Balance of connected wallet (updated from R= responses) */
   const [walletBalance, setWalletBalance] = useState<{ address: string; raw: string; display: string } | null>(null);
+
+  /** Buffer for partial CCTP messages (c1/c2 pairing) */
+  const pendingCctpRef = useRef<Map<string, { part1?: CctpPart1; part2?: CctpPart2; from: number | string; channel: number }>>(new Map());
 
   useEffect(() => {
     try {
@@ -481,30 +521,61 @@ export default function MeshtasticComponent() {
               },
             ]);
           }
-        } else if (text.startsWith("c=")) {
+        } else if (text.startsWith("c1=") || text.startsWith("c2=")) {
           try {
-            const decoded = decodeCctpArgs(text.slice(2));
-            const { user: decodedUser, ...cctpField } = decoded;
-            console.log("[Mesh] Decoded CCTP args:", decoded);
-            const record: ActionRecord = {
-              action: "executeCrosschain",
-              field: cctpField,
-              from: packet.from,
-              user: decodedUser,
-              channel: packet.channel,
-              timestamp: Date.now(),
-            };
-            setActionQueue((prev) => [...prev, record]);
+            const isC1 = text.startsWith("c1=");
+            const payload = text.slice(3);
+            const userKey = payload.split("|")[0].toLowerCase();
+
+            const pending = pendingCctpRef.current;
+            let entry = pending.get(userKey) ?? { part1: undefined as CctpPart1 | undefined, part2: undefined as CctpPart2 | undefined, from: packet.from as string | number, channel: packet.channel as number };
+
+            if (isC1) {
+              entry.part1 = decodeCctpMsg1(payload);
+            } else {
+              entry.part2 = decodeCctpMsg2(payload);
+            }
+            entry.from = packet.from;
+            entry.channel = packet.channel;
+            pending.set(userKey, entry);
+
             setMessages((prev) => [
               ...prev,
               {
                 channel: packet.channel,
                 from: packet.from,
-                text: "[executeCrosschain] " + JSON.stringify(decoded),
+                text: `[CCTP ${isC1 ? "1/2" : "2/2"}] ${text}`,
                 timestamp: Date.now(),
-                source: "cctp",
+                source: "cctp-partial",
               },
             ]);
+
+            // If both parts are available, combine and enqueue
+            if (entry.part1 && entry.part2) {
+              const decoded = combineCctpParts(entry.part1, entry.part2);
+              const { user: decodedUser, ...cctpField } = decoded;
+              console.log("[Mesh] Combined CCTP parts:", decoded);
+              const record: ActionRecord = {
+                action: "executeCrosschain",
+                field: cctpField,
+                from: entry.from,
+                user: decodedUser,
+                channel: entry.channel,
+                timestamp: Date.now(),
+              };
+              setActionQueue((prev) => [...prev, record]);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  channel: entry.channel,
+                  from: entry.from,
+                  text: "[executeCrosschain] " + JSON.stringify(decoded),
+                  timestamp: Date.now(),
+                  source: "cctp",
+                },
+              ]);
+              pending.delete(userKey);
+            }
           } catch (err) {
             console.error("[Mesh] Failed to decode CCTP message:", err);
             setMessages((prev) => [
@@ -898,21 +969,32 @@ export default function MeshtasticComponent() {
       setCctpEvvmSig(evvmSignature);
       console.log("[CCTP] EVVM Pay Signature:", evvmSignature);
 
-      const encoded = encodeCctpArgs(
+      const msg1 = encodeCctpMsg1(
         signer.address,
         destinationChain,
         amount,
         nonce,
-        true,
         signature,
-        priorityFee,
-        nonceEvvm,
-        true,
-        evvmSignature
       );
-      console.log("[CCTP] Encoded length:", encoded.length, "chars");
-      console.log("[CCTP] Encoded:", encoded);
-      setMessageText(encoded);
+      const msg2 = encodeCctpMsg2(
+        signer.address,
+        nonceEvvm,
+        evvmSignature,
+      );
+      console.log("[CCTP] Msg1 length:", msg1.length, "chars");
+      console.log("[CCTP] Msg2 length:", msg2.length, "chars");
+      console.log("[CCTP] Msg1:", msg1);
+      console.log("[CCTP] Msg2:", msg2);
+
+      // Send both messages (msg1 first, then msg2)
+      if (device && isConnected) {
+        await device.sendText(msg1, undefined, true, channel);
+        await device.sendText(msg2, undefined, true, channel);
+        console.log("[CCTP] Both messages sent via Meshtastic");
+      } else {
+        // If not connected, put both in the text field for reference
+        setMessageText(msg1 + "\n" + msg2);
+      }
     } catch (error) {
       console.error("[CCTP] Error creating crosschain signature:", error);
     }
@@ -1181,18 +1263,21 @@ export default function MeshtasticComponent() {
                     body,
                   });
                   const data = await res.json();
-                  console.log(`[Queue] ${record.action} @ ${record.timestamp} → ${res.status}`, data);
+                  // API returns status field: "done" = success, anything else = failure
+                  const isApiSuccess = res.status >= 200 && res.status < 300 &&
+                    (data.status === undefined || data.status === "done");
+                  console.log(`[Queue] ${record.action} @ ${record.timestamp} → ${res.status} (${data.status})`, data);
                   report.push({ timestamp: record.timestamp, action: record.action, status: res.status, response: data });
                   setActionQueue((prev) => prev.filter((r) => r.timestamp !== record.timestamp));
 
                   // Send result back via Meshtastic
                   if (device && isConnected) {
                     let meshMsg: string;
-                    if (res.status >= 200 && res.status < 300) {
+                    if (isApiSuccess) {
                       const txHash = data.txHash ?? data.hash ?? data.transactionHash ?? "no-hash";
                       meshMsg = `c: ${txHash}|${nonces}|${userAddr}`;
                     } else {
-                      const reason = data.error ?? data.message ?? `HTTP ${res.status}`;
+                      const reason = data.reason ?? data.error ?? data.message ?? data.status ?? `HTTP ${res.status}`;
                       meshMsg = `f: ${reason}|${nonces}|${userAddr}`;
                     }
                     try {
@@ -1250,10 +1335,12 @@ export default function MeshtasticComponent() {
                   style={{
                     backgroundColor: "var(--ctp-mantle)",
                     borderLeft: `4px solid ${
-                      typeof entry.status === "number" && entry.status >= 200 && entry.status < 300
+                      typeof entry.status === "number" && entry.status >= 200 && entry.status < 300 &&
+                      (entry.response?.status === undefined || entry.response?.status === "done")
                         ? "var(--ctp-green)"
                         : "var(--ctp-red)"
                     }`,
+
                   }}
                 >
                   <Text size="sm">
@@ -1369,6 +1456,19 @@ export default function MeshtasticComponent() {
                     <Text size="sm" fw={600} style={{ color: "var(--ctp-mauve)" }}>Cross-chain Request Queued</Text>
                     <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {msg.from}</Text>
                     <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
+                    <details style={{ marginTop: "4px" }}>
+                      <summary style={{ fontSize: "12px", cursor: "pointer" }}>Raw data</summary>
+                      <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{msg.text}</pre>
+                    </details>
+                  </Paper>
+                );
+              }
+              if (msg.source === "cctp-partial") {
+                return (
+                  <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-yellow)" }}>
+                    <Text size="sm" fw={600} style={{ color: "var(--ctp-yellow)" }}>Cross-chain Partial Message</Text>
+                    <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {msg.from}</Text>
+                    <Text size="xs" c="dimmed">Waiting for matching part &middot; Channel: {msg.channel} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
                     <details style={{ marginTop: "4px" }}>
                       <summary style={{ fontSize: "12px", cursor: "pointer" }}>Raw data</summary>
                       <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{msg.text}</pre>
