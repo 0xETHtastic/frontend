@@ -535,6 +535,18 @@ export default function MshtasticBoilerplate() {
               },
             ]);
           }
+        } else if (text.startsWith("c: ") || text.startsWith("f: ")) {
+          // Result confirmation / failure from queue processing
+          setMessages((prev) => [
+            ...prev,
+            {
+              channel: packet.channel,
+              from: packet.from,
+              text: text,
+              timestamp: Date.now(),
+              source: text.startsWith("c: ") ? "result-ok" : "result-fail",
+            },
+          ]);
         } else {
           setMessages((prev) => [
             ...prev,
@@ -1045,6 +1057,11 @@ export default function MshtasticBoilerplate() {
               const snapshot = [...actionQueue];
               const report: { timestamp: number; action: string; status: number | "error"; response: any }[] = [];
               for (const record of snapshot) {
+                // Resolve the address that ordered the execution
+                const userAddr = record.action === "executeCrosschain"
+                  ? String(record.user ?? record.from)
+                  : (record.field as SendToEvvmField).from ?? String(record.from);
+
                 try {
                   const endpoint = record.action === "executeCrosschain"
                     ? "/api/executeCrosschain"
@@ -1061,9 +1078,39 @@ export default function MshtasticBoilerplate() {
                   console.log(`[Queue] ${record.action} @ ${record.timestamp} → ${res.status}`, data);
                   report.push({ timestamp: record.timestamp, action: record.action, status: res.status, response: data });
                   setActionQueue((prev) => prev.filter((r) => r.timestamp !== record.timestamp));
+
+                  // Send result back via Meshtastic
+                  if (device && isConnected) {
+                    let meshMsg: string;
+                    if (res.status >= 200 && res.status < 300) {
+                      const txHash = data.txHash ?? data.hash ?? data.transactionHash ?? "no-hash";
+                      meshMsg = `c: ${txHash} ${userAddr}`;
+                    } else {
+                      const reason = data.error ?? data.message ?? `HTTP ${res.status}`;
+                      meshMsg = `f: ${reason} ${userAddr}`;
+                    }
+                    try {
+                      await device.sendText(meshMsg, undefined, true, channel);
+                      console.log("[Queue] Sent result to mesh:", meshMsg);
+                    } catch (meshErr) {
+                      console.error("[Queue] Failed to send result to mesh:", meshErr);
+                    }
+                  }
                 } catch (err) {
                   console.error(`[Queue] ${record.action} @ ${record.timestamp} failed:`, err);
                   report.push({ timestamp: record.timestamp, action: record.action, status: "error", response: String(err) });
+
+                  // Send failure back via Meshtastic
+                  if (device && isConnected) {
+                    const reason = err instanceof Error ? err.message : String(err);
+                    const meshMsg = `f: ${reason} ${userAddr}`;
+                    try {
+                      await device.sendText(meshMsg, undefined, true, channel);
+                      console.log("[Queue] Sent failure to mesh:", meshMsg);
+                    } catch (meshErr) {
+                      console.error("[Queue] Failed to send failure to mesh:", meshErr);
+                    }
+                  }
                 }
               }
               setProcessReport(report);
@@ -1163,14 +1210,72 @@ export default function MshtasticBoilerplate() {
           <Text c="dimmed">No messages</Text>
         ) : (
           <Stack gap="sm">
-            {messages.map((msg, i) => (
-              <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)" }}>
-                <Text size="sm">Channel: {msg.channel}</Text>
-                <Text size="sm" style={{ wordBreak: "break-all" }}>From: {msg.from}</Text>
-                <Text size="sm" style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>Text: {msg.text}</Text>
-                <Text size="sm">Time: {new Date(msg.timestamp).toLocaleString()}</Text>
-              </Paper>
-            ))}
+            {messages.map((msg, i) => {
+              // Decode result messages for friendly display
+              if (msg.source === "result-ok") {
+                const rest = msg.text.slice(3); // strip "c: "
+                const spaceIdx = rest.indexOf(" ");
+                const txHash = spaceIdx !== -1 ? rest.slice(0, spaceIdx) : rest;
+                const addr = spaceIdx !== -1 ? rest.slice(spaceIdx + 1) : "";
+                return (
+                  <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-green)" }}>
+                    <Text size="sm" fw={600} style={{ color: "var(--ctp-green)" }}>Transaction Confirmed</Text>
+                    <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Tx Hash:</strong> {txHash}</Text>
+                    {addr && <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Ordered by:</strong> {addr}</Text>}
+                    <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; Node: {msg.from} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
+                  </Paper>
+                );
+              }
+              if (msg.source === "result-fail") {
+                const rest = msg.text.slice(3); // strip "f: "
+                const lastSpace = rest.lastIndexOf(" ");
+                const reason = lastSpace !== -1 ? rest.slice(0, lastSpace) : rest;
+                const addr = lastSpace !== -1 ? rest.slice(lastSpace + 1) : "";
+                return (
+                  <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-red)" }}>
+                    <Text size="sm" fw={600} style={{ color: "var(--ctp-red)" }}>Transaction Failed</Text>
+                    <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Reason:</strong> {reason}</Text>
+                    {addr && <Text size="sm" style={{ wordBreak: "break-all" }}><strong>Ordered by:</strong> {addr}</Text>}
+                    <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; Node: {msg.from} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
+                  </Paper>
+                );
+              }
+              if (msg.source === "evvm") {
+                return (
+                  <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-blue)" }}>
+                    <Text size="sm" fw={600} style={{ color: "var(--ctp-blue)" }}>Payment Request Queued</Text>
+                    <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {msg.from}</Text>
+                    <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
+                    <details style={{ marginTop: "4px" }}>
+                      <summary style={{ fontSize: "12px", cursor: "pointer" }}>Raw data</summary>
+                      <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{msg.text}</pre>
+                    </details>
+                  </Paper>
+                );
+              }
+              if (msg.source === "cctp") {
+                return (
+                  <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)", borderLeft: "4px solid var(--ctp-mauve)" }}>
+                    <Text size="sm" fw={600} style={{ color: "var(--ctp-mauve)" }}>Cross-chain Request Queued</Text>
+                    <Text size="sm" style={{ wordBreak: "break-all" }}><strong>From:</strong> {msg.from}</Text>
+                    <Text size="xs" c="dimmed">Channel: {msg.channel} &middot; {new Date(msg.timestamp).toLocaleString()}</Text>
+                    <details style={{ marginTop: "4px" }}>
+                      <summary style={{ fontSize: "12px", cursor: "pointer" }}>Raw data</summary>
+                      <pre style={{ fontSize: "11px", margin: "4px 0 0", overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{msg.text}</pre>
+                    </details>
+                  </Paper>
+                );
+              }
+              // Generic message
+              return (
+                <Paper key={i} withBorder p="sm" style={{ backgroundColor: "var(--ctp-mantle)" }}>
+                  <Text size="sm">Channel: {msg.channel}</Text>
+                  <Text size="sm" style={{ wordBreak: "break-all" }}>From: {msg.from}</Text>
+                  <Text size="sm" style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>Text: {msg.text}</Text>
+                  <Text size="sm">Time: {new Date(msg.timestamp).toLocaleString()}</Text>
+                </Paper>
+              );
+            })}
           </Stack>
         )}
       </Paper>
