@@ -165,10 +165,11 @@ const CCTP_CHAIN_NAME: Record<string, string> = {
 
 /**
  * Encodes CCTP executeCrosschain call data into a compact Meshtastic string.
- * Format: c=chain|amount|nonce|ia|sig|pfee|nonceEvvm|iaEvvm|sigEvvm
- * Chain codes: E=ethereum_sepolia, A=arbitrum_sepolia. Sigs in base64 (no padding).
+ * Format: c=user|chain|amount|nonce|ia|sig|pfee|nonceEvvm|iaEvvm|sigEvvm
+ * user: ETH address without 0x prefix. Chain codes: E=ethereum_sepolia, A=arbitrum_sepolia. Sigs in base64 (no padding).
  */
 function encodeCctpArgs(
+  user: string,
   destinationChain: string,
   amount: string,
   nonce: string,
@@ -187,7 +188,9 @@ function encodeCctpArgs(
     }
     return btoa(String.fromCharCode(...bytes)).replace(/=+$/, "");
   };
+  const userHex = user.startsWith("0x") ? user.slice(2) : user;
   return "c=" + [
+    userHex,
     CCTP_CHAIN_CODE[destinationChain] ?? destinationChain,
     amount,
     nonce,
@@ -201,9 +204,9 @@ function encodeCctpArgs(
 }
 
 /**
- * Decodes a compact CCTP Meshtastic string (after stripping "c=") back into CctpField.
+ * Decodes a compact CCTP Meshtastic string (after stripping "c=") back into CctpField + user.
  */
-function decodeCctpArgs(encoded: string): CctpField {
+function decodeCctpArgs(encoded: string): { user: string } & CctpField {
   const parts = encoded.split("|");
   const b64ToHex = (b64: string) => {
     const binary = atob(b64);
@@ -214,15 +217,16 @@ function decodeCctpArgs(encoded: string): CctpField {
     return hex;
   };
   return {
-    destinationChain: CCTP_CHAIN_NAME[parts[0]] ?? parts[0],
-    amount: parts[1],
-    nonce: parts[2],
-    isAsyncExec: parts[3] === "1",
-    signature: b64ToHex(parts[4]),
-    priorityFeeEvvm: parts[5],
-    nonceEvvm: parts[6],
-    isAsyncExecEvvm: parts[7] === "1",
-    signatureEvvm: b64ToHex(parts[8]),
+    user: "0x" + parts[0],
+    destinationChain: CCTP_CHAIN_NAME[parts[1]] ?? parts[1],
+    amount: parts[2],
+    nonce: parts[3],
+    isAsyncExec: parts[4] === "1",
+    signature: b64ToHex(parts[5]),
+    priorityFeeEvvm: parts[6],
+    nonceEvvm: parts[7],
+    isAsyncExecEvvm: parts[8] === "1",
+    signatureEvvm: b64ToHex(parts[9]),
   };
 }
 
@@ -283,7 +287,7 @@ function decodeArgs(encoded: string): SendToEvvmField {
     identity: "",
     token: ZERO_FULL,
     amount: parts[2],
-    priorityFee: parts[3],
+    priorityFee: "0",
     executor: ZERO_FULL,
     addr7: ZERO_FULL,
     nonce: parts[4],
@@ -498,11 +502,13 @@ export default function MshtasticBoilerplate() {
         } else if (text.startsWith("c=")) {
           try {
             const decoded = decodeCctpArgs(text.slice(2));
+            const { user: decodedUser, ...cctpField } = decoded;
             console.log("[Mesh] Decoded CCTP args:", decoded);
             const record: ActionRecord = {
               action: "executeCrosschain",
-              field: decoded,
+              field: cctpField,
               from: packet.from,
+              user: decodedUser,
               channel: packet.channel,
               timestamp: Date.now(),
             };
@@ -730,11 +736,11 @@ export default function MshtasticBoilerplate() {
     const to = getValue("toAddressInput_Pay");
     const tokenAddress = "0x0000000000000000000000000000000000000000";
     const amount = getValue("amountTokenInput_Pay");
-    const priorityFee = getValue("priorityFeeInput_Pay");
+    const priorityFee = "0";
     const nonce = getValue("nonceInput_Pay");
     const senderExecutor = "0x0000000000000000000000000000000000000000";
 
-    if (!tokenAddress || !amount || !priorityFee || !nonce) {
+    if (!tokenAddress || !amount || !nonce) {
       console.error("All fields are required");
       return;
     }
@@ -785,12 +791,12 @@ export default function MshtasticBoilerplate() {
     const destinationChain = getValue("destinationChainInput_CCTP");
     const amount = getValue("amountInput_CCTP");
     const nonce = getValue("nonceInput_CCTP");
-    const priorityFee = getValue("priorityFeeInput_CCTP");
+    const priorityFee = "0";
     const nonceEvvm = getValue("nonceEvvmInput_CCTP");
 
     const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
-    if (!destinationChain || !amount || !nonce || !priorityFee || !nonceEvvm) {
+    if (!destinationChain || !amount || !nonce || !nonceEvvm) {
       console.error("[CCTP] All fields are required");
       return;
     }
@@ -846,6 +852,7 @@ export default function MshtasticBoilerplate() {
       console.log("[CCTP] EVVM Pay Signature:", evvmSignature);
 
       const encoded = encodeCctpArgs(
+        signer.address,
         destinationChain,
         amount,
         nonce,
@@ -955,7 +962,6 @@ export default function MshtasticBoilerplate() {
             width:"30vw"
           }} />
           <TextInput id="amountTokenInput_Pay" placeholder="Amount" label="Amount" />
-          <TextInput id="priorityFeeInput_Pay" placeholder="Priority Fee (gwei)" label="Priority Fee (gwei)" />
           <TextInput id="nonceInput_Pay" placeholder="Nonce" label="Nonce" />
           <Button onClick={makeSig}>Create Signature</Button>
         </Stack>
@@ -980,7 +986,6 @@ export default function MshtasticBoilerplate() {
           />
           <TextInput id="amountInput_CCTP" placeholder="Amount" label="Amount" />
           <TextInput id="nonceInput_CCTP" placeholder="Nonce (crosschain)" label="Nonce (crosschain)" />
-          <TextInput id="priorityFeeInput_CCTP" placeholder="Priority Fee (EVVM)" label="Priority Fee (EVVM)" />
           <TextInput id="nonceEvvmInput_CCTP" placeholder="Nonce (EVVM)" label="Nonce (EVVM)" />
           <Button onClick={makeCCTP}>Create CCTP Signature</Button>
           {cctpCrosschainSig && (
@@ -1043,7 +1048,7 @@ export default function MshtasticBoilerplate() {
                     ? "/api/executeCrosschain"
                     : "/api/sendToEvvm";
                   const body = record.action === "executeCrosschain"
-                    ? JSON.stringify({ user: record.user ?? record.from, ...(record.field as CctpField) })
+                    ? JSON.stringify({ user: String(record.user ?? record.from), ...(record.field as CctpField) })
                     : JSON.stringify(record.field);
                   const res = await fetch(endpoint, {
                     method: "POST",
